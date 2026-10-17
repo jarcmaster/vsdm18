@@ -40,6 +40,44 @@ tray, and **Scenes → Pages** navigation just like the official app.
 
 ---
 
+## 🧩 Compatibility
+
+This software targets the **M18 hardware class**, which enumerates on USB as
+**`0x5548:0x1000`** and has **15 LCD keys (3×5) + 3 screenless side buttons
+(PREV / HOME / NEXT)**.
+
+**✅ Works out of the box** — any M18-class unit that reports `0x5548:0x1000`,
+regardless of the badge on the box. It is the exact same hardware, rebranded as:
+
+| Brand / name | USB ID | Status |
+|---|---|---|
+| **VSDinside** Stream Dock **M18** | `0x5548:0x1000` | ✅ Verified on real hardware |
+| **Mirabox** Stream Dock (M18-class) | `0x5548:0x1000` | ✅ Same protocol |
+| **Ajazz** Stream Dock (M18-class) | `0x5548:0x1000` | ✅ Same protocol |
+| **HOTSPOTEK** Stream Dock (M18-class) | `0x5548:0x1000` | ✅ Same protocol |
+
+**❌ Not supported** — different USB ID / protocol version / key layout, or they add
+knobs, dials or touch strips. These are **not** driven by this software:
+
+| Model | USB ID |
+|---|---|
+| Mirabox **N3** | `0x5548:0x1001` |
+| Mirabox **293 / 293S** (HSV293S) | `0x5548:0x6670` |
+| Ajazz **AKP153 / AKP153E** | `0x5548:0x6674` |
+| Mirabox **N4**, Ajazz **AKP03 / AKP05 / AKP815**, and any model with encoders/knobs | various |
+
+> The driver only matches `0x5548:0x1000` and rejects unknown IDs. A near-identical
+> 15-key model that reports a different PID *might* work by changing `PRODUCT_ID` in
+> `streamdock_m18/device.py`, but this is **untested** and may need protocol changes.
+> PRs adding device profiles are welcome.
+
+**Check your device:** run `python scan.py` to confirm whether an M18-class
+device (`0x5548:0x1000`) is detected. To read the exact USB ID of any unit on
+Windows: Device Manager → your Stream Dock → Properties → Details → *Hardware Ids*
+(look for `VID_5548&PID_xxxx`).
+
+---
+
 ## 🚀 Installation (end user)
 
 **A single executable.** No Python installation required.
