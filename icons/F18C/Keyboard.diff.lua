@@ -1,5 +1,28 @@
 local diff = {
 	["keyDiffs"] = {
+		["d3003pnilunilcd62vd1vpnilvunil"] = {
+			["added"] = {
+				[1] = {
+					["key"] = "T",
+					["reformers"] = {
+						[1] = "RAlt",
+						[2] = "RShift",
+					},
+				},
+			},
+			["name"] = "LST/NFLR Switch - ON",
+		},
+		["d3005pnilu3005cd62vd1vpnilvu0"] = {
+			["added"] = {
+				[1] = {
+					["key"] = "C",
+					["reformers"] = {
+						[1] = "LShift",
+					},
+				},
+			},
+			["name"] = "LTD/R Switch - ARM",
+		},
 		["d3001pnilu3001cd12vd1vpnilvu0"] = {
 			["added"] = {
 				[1] = {

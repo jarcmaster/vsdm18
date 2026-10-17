@@ -82,8 +82,8 @@ ACTION_LIBRARY = [
         ("Multimedia", I.PLAY_CIRCLE, "multimedia"),
     ]),
     ("Audio Player", I.VOLUME_UP, [
-        ("Play Audio", I.PLAY_ARROW, "todo:play_audio"),
-        ("Stop Audio", I.STOP, "todo:stop_audio"),
+        ("Play Audio", I.PLAY_ARROW, "play_audio"),
+        ("Stop Audio", I.STOP, "stop_audio"),
     ]),
     ("Operation Flow", I.ACCOUNT_TREE, [
         ("Action flow", I.ACCOUNT_TREE, "action_flow"),
@@ -109,6 +109,7 @@ ACTION_TYPES = ["none", "run", "open", "open_app", "open_url", "hotkey",
                 "write_text", "password", "multimedia", "brightness",
                 "close", "mouse", "devsleep", "scene_shift", "page_indicator",
                 "hotkey_switch", "super_hotkeys", "action_flow", "carousel", "action_toggle",
+                "play_audio", "stop_audio",
                 "next_page", "prev_page", "goto_page", "home"]
 
 SUB_TYPES = ["hotkey", "run", "open", "open_url", "write_text", "multimedia", "mouse", "close"]
@@ -440,7 +441,7 @@ AID_TR = {
     "open": "a_open", "open_app": "a_open_app", "close": "a_close", "write_text": "a_text",
     "password": "a_password", "multimedia": "a_multimedia", "action_flow": "a_action_flow",
     "carousel": "a_carousel", "action_toggle": "a_action_toggle",
-    "todo:play_audio": "a_play_audio", "todo:stop_audio": "a_stop_audio",
+    "play_audio": "a_play_audio", "stop_audio": "a_stop_audio",
     "obs_record": "a_obs_record", "obs_stream": "a_obs_stream", "obs_vcam": "a_obs_vcam",
     "obs_scene": "a_obs_scene", "obs_source": "a_obs_source", "obs_audio": "a_obs_audio",
     "obs_studio_mode": "a_obs_studio", "obs_screenshot": "a_obs_screenshot",
@@ -956,6 +957,61 @@ def main(page: ft.Page):
             return ([ft.Text(t("fld_command"), size=12, color="#9fb4d6"), grid], build)
         key_shell(pos, thdr("cat_toolbox", "a_multimedia"), [40, 30, 50], ex)
 
+    def open_play_audio(pos):
+        from streamdock_m18 import audio as _audio
+        OPS = [("ap_op_toggle", "toggle"), ("ap_op_restart", "restart"),
+               ("ap_op_pause", "pause"), ("ap_op_loop", "loop"), ("ap_op_stop", "stop")]
+        devices = _audio.list_outputs()   # [] si falta sounddevice
+
+        def ex(refresh, cur):
+            act = cur.get("action", {}) if cur.get("action", {}).get("type") == "play_audio" else {}
+            filef = ft.TextField(label=t("fld_audio_file"), value=act.get("file", ""), width=300)
+
+            async def pick_file(e):
+                files = await file_picker.pick_files(
+                    allow_multiple=False,
+                    allowed_extensions=["wav", "mp3", "ogg", "flac", "aac", "m4a", "wma"])
+                if files:
+                    filef.value = files[0].path
+                    filef.update()
+
+            file_row = ft.Row([filef,
+                               ft.IconButton(I.INSERT_DRIVE_FILE, tooltip=t("ui_choose_file"),
+                                             on_click=pick_file)])
+            op_dd = ft.Dropdown(label=t("fld_operation"), width=300,
+                                value=act.get("operation", "toggle"),
+                                options=[ft.DropdownOption(key=v, text=t(k)) for k, v in OPS])
+            vol = ft.Slider(min=0, max=100, divisions=100, label="{value}",
+                            value=act.get("volume", 80))
+            out_opts = [ft.DropdownOption(key="", text=t("ap_default_output"))]
+            out_opts += [ft.DropdownOption(key=n, text=n) for n in devices]
+            curout = act.get("output", "")
+            if curout and curout not in devices:
+                out_opts.append(ft.DropdownOption(key=curout, text=curout))
+            out_dd = ft.Dropdown(label=t("fld_output"), width=360, value=curout,
+                                 enable_search=True, options=out_opts)
+
+            extras = [file_row, op_dd,
+                      ft.Row([ft.Icon(I.VOLUME_UP, size=18), vol], spacing=6),
+                      out_dd]
+            if not _audio.libs_available():
+                extras.append(ft.Text(t("ap_need_libs"), size=11, color="#d077aa"))
+
+            def build():
+                return {"type": "play_audio", "file": (filef.value or "").strip(),
+                        "operation": op_dd.value or "toggle", "volume": int(vol.value),
+                        "output": out_dd.value or ""}
+            return (extras, build)
+        key_shell(pos, thdr("cat_audio", "a_play_audio"), [60, 30, 30], ex)
+
+    def open_stop_audio(pos):
+        # Como el software oficial: solo Title + icono. Detiene todo el audio.
+        def ex(refresh, cur):
+            def build():
+                return {"type": "stop_audio"}
+            return ([], build)
+        key_shell(pos, thdr("cat_audio", "a_stop_audio"), [30, 30, 50], ex)
+
     def open_brightness(pos):
         def ex(refresh, cur):
             act = cur.get("action", {}) if cur.get("action", {}).get("type") == "brightness" else {}
@@ -1198,6 +1254,15 @@ def main(page: ft.Page):
                 actions=[ft.FilledButton(t("ui_yes"), on_click=lambda ev: _apply_imported(cfg)),
                          ft.TextButton(t("ui_no"), on_click=lambda ev: page.pop_dialog())]))
 
+        def do_reload(e):
+            # re-lee config.json del disco (descarta cambios en memoria)
+            try:
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+            except Exception as ex:
+                info(str(ex)); return
+            _apply_imported(cfg)
+
         def open_folder(e):
             # carpeta real donde viven config.json + icons/ del usuario
             folder = m18_paths.data_dir()
@@ -1243,7 +1308,9 @@ def main(page: ft.Page):
 
         def _info_row(label, value):
             return ft.Row([ft.Text(f"{label}:", size=12, color="#9fb4d6"),
-                           ft.Text(value, size=12, selectable=True)], spacing=8)
+                           ft.Text(value, size=12, selectable=True, expand=True,
+                                   no_wrap=False, overflow=ft.TextOverflow.VISIBLE)],
+                          spacing=8, vertical_alignment=ft.CrossAxisAlignment.START)
 
         body = ft.Column([
             _info_row(t("set_serial"), serial),
@@ -1255,7 +1322,10 @@ def main(page: ft.Page):
             ft.Text(f"{t('set_led_intensity')}:", size=12), led_int,
             ft.Divider(height=8),
             ft.Row([ft.FilledButton(t("set_export"), icon=I.FILE_UPLOAD, on_click=do_export),
-                    ft.FilledButton(t("set_import"), icon=I.FILE_DOWNLOAD, on_click=do_import)]),
+                    ft.FilledButton(t("set_import"), icon=I.FILE_DOWNLOAD, on_click=do_import),
+                    ft.FilledButton(t("set_reload"), icon=I.REFRESH, on_click=do_reload)],
+                   wrap=True, spacing=8, run_spacing=8),
+            _info_row(t("set_config_path"), CONFIG_PATH),
             ft.Row([ft.TextButton(t("help_title"), icon=I.HELP_OUTLINE, on_click=show_help),
                     ft.TextButton(t("about"), icon=I.INFO_OUTLINE, on_click=show_about)]),
             ft.Row([ft.TextButton(t("set_user_guide"), icon=I.MENU_BOOK, on_click=user_guide),
@@ -2180,6 +2250,10 @@ def main(page: ft.Page):
             return open_openapp(pos)
         if kind == "multimedia":
             return open_multimedia(pos)
+        if kind == "play_audio":
+            return open_play_audio(pos)
+        if kind == "stop_audio":
+            return open_stop_audio(pos)
         if kind == "brightness":
             return open_brightness(pos)
         if kind and kind.startswith("obs_"):

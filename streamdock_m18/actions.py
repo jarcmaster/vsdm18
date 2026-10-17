@@ -25,6 +25,105 @@ from typing import Callable
 Action = Callable[[object], None]
 
 
+# --- envio de teclas por SCANCODE (para que DCS World las reciba) ------------
+# DCS lee el teclado por DirectInput/scancode e IGNORA las teclas que pyautogui
+# inyecta con scancode 0. Aqui enviamos con SendInput + KEYEVENTF_SCANCODE para
+# que juegos como DCS las registren. Si algo falla, se usa pyautogui como respaldo.
+import ctypes as _ct
+from ctypes import wintypes as _wt
+
+_user32 = _ct.WinDLL("user32", use_last_error=True)
+_ULONG_PTR = _ct.c_ulonglong if _ct.sizeof(_ct.c_void_p) == 8 else _ct.c_ulong
+
+class _MOUSEINPUT(_ct.Structure):
+    _fields_ = [("dx", _wt.LONG), ("dy", _wt.LONG), ("mouseData", _wt.DWORD),
+                ("dwFlags", _wt.DWORD), ("time", _wt.DWORD), ("dwExtraInfo", _ULONG_PTR)]
+class _KEYBDINPUT(_ct.Structure):
+    _fields_ = [("wVk", _wt.WORD), ("wScan", _wt.WORD), ("dwFlags", _wt.DWORD),
+                ("time", _wt.DWORD), ("dwExtraInfo", _ULONG_PTR)]
+class _HARDWAREINPUT(_ct.Structure):
+    _fields_ = [("uMsg", _wt.DWORD), ("wParamL", _wt.WORD), ("wParamH", _wt.WORD)]
+class _INUNION(_ct.Union):
+    _fields_ = [("mi", _MOUSEINPUT), ("ki", _KEYBDINPUT), ("hi", _HARDWAREINPUT)]
+class _INPUT(_ct.Structure):
+    _fields_ = [("type", _wt.DWORD), ("u", _INUNION)]
+
+_INPUT_KEYBOARD = 1
+_KEYEVENTF_EXTENDEDKEY = 0x0001
+_KEYEVENTF_KEYUP = 0x0002
+_KEYEVENTF_SCANCODE = 0x0008
+
+# nombre de tecla (estilo pyautogui) -> (codigo VK de Windows, es_tecla_extendida)
+_VK = {
+    "shiftleft": (0xA0, False), "shiftright": (0xA1, False),
+    "ctrlleft": (0xA2, False), "ctrlright": (0xA3, True),
+    "altleft": (0xA4, False), "altright": (0xA5, True),
+    "winleft": (0x5B, True), "winright": (0x5C, True),
+    "ctrl": (0x11, False), "shift": (0x10, False), "alt": (0x12, False), "win": (0x5B, True),
+    "space": (0x20, False), "enter": (0x0D, False), "return": (0x0D, False),
+    "tab": (0x09, False), "backspace": (0x08, False), "esc": (0x1B, False), "escape": (0x1B, False),
+    "left": (0x25, True), "up": (0x26, True), "right": (0x27, True), "down": (0x28, True),
+    "home": (0x24, True), "end": (0x23, True), "pageup": (0x21, True), "pagedown": (0x22, True),
+    "insert": (0x2D, True), "delete": (0x2E, True), "del": (0x2E, True),
+    "pause": (0x13, False), "capslock": (0x14, False), "printscreen": (0x2C, True),
+    "add": (0x6B, False), "subtract": (0x6D, False), "multiply": (0x6A, False),
+    "divide": (0x6F, True), "decimal": (0x6E, False),
+}
+
+def _vk_ext(name):
+    """Devuelve (vk, extended) para un nombre de tecla, o None si no se reconoce."""
+    import re
+    n = (name or "").lower()
+    if n in _VK:
+        return _VK[n]
+    m = re.fullmatch(r"f(\d{1,2})", n)
+    if m:
+        i = int(m.group(1))
+        if 1 <= i <= 24:
+            return (0x70 + i - 1, False)
+    if n.startswith("num") and n[3:].isdigit():
+        return (0x60 + int(n[3:]), False)
+    if len(name) == 1:
+        res = _user32.VkKeyScanW(ord(name))
+        if res != -1:
+            return (res & 0xFF, False)
+    return None
+
+def _sc_event(vk, keyup, extended):
+    scan = _user32.MapVirtualKeyW(vk, 0) & 0xFF
+    flags = _KEYEVENTF_SCANCODE
+    if extended:
+        flags |= _KEYEVENTF_EXTENDEDKEY
+    if keyup:
+        flags |= _KEYEVENTF_KEYUP
+    inp = _INPUT(type=_INPUT_KEYBOARD,
+                 u=_INUNION(ki=_KEYBDINPUT(wVk=0, wScan=scan, dwFlags=flags,
+                                           time=0, dwExtraInfo=0)))
+    _user32.SendInput(1, _ct.byref(inp), _ct.sizeof(_INPUT))
+
+def send_combo_scancode(keys, hold=0.05) -> bool:
+    """Pulsa una combinacion por scancode (modificadores primero). True si pudo.
+
+    Mete una pausa corta entre cada tecla para que el juego asiente los
+    modificadores antes de la tecla principal (DCS lo necesita).
+    """
+    resolved = [_vk_ext(k) for k in keys]
+    if not resolved or any(r is None for r in resolved):
+        return False
+    try:
+        for vk, ext in resolved:
+            _sc_event(vk, False, ext)
+            time.sleep(0.015)
+        time.sleep(hold)
+        for vk, ext in reversed(resolved):
+            _sc_event(vk, True, ext)
+            time.sleep(0.008)
+        return True
+    except Exception as e:
+        print("[scancode]", e)
+        return False
+
+
 # --- navegacion de paginas --------------------------------------------------
 class PageNav:
     """Marcador de navegacion de pagina. target: 'next', 'prev' o indice int."""
@@ -523,11 +622,14 @@ def hotkey_switch(a_keys, b_keys) -> Action:
     st = {"on": False}
 
     def action(event):
-        import pyautogui
         keys = b_keys if st["on"] else a_keys
         st["on"] = not st["on"]
-        if keys:
-            pyautogui.hotkey(*keys)
+        if not keys:
+            return
+        if send_combo_scancode(list(keys)):
+            return
+        import pyautogui
+        pyautogui.hotkey(*keys)
     return action
 
 
@@ -552,9 +654,9 @@ def super_hotkeys(script: str) -> Action:
         steps.append((keys, delay))
 
     def action(event):
-        import pyautogui
         for keys, delay in steps:
-            if keys:
+            if keys and not send_combo_scancode(keys):
+                import pyautogui
                 pyautogui.hotkey(*keys)
             time.sleep(max(0, delay) / 1000.0)
     return action
@@ -653,8 +755,14 @@ def open_url(url: str, browser: str = "default") -> Action:
 
 
 def hotkey(*keys: str) -> Action:
-    """Combinacion de teclas, ej: hotkey('ctrl','shift','o'). Requiere pyautogui."""
+    """Combinacion de teclas, ej: hotkey('ctrl','shift','o').
+
+    Envia por SCANCODE (SendInput) para que juegos como DCS la reciban; si alguna
+    tecla no se reconoce, recurre a pyautogui.
+    """
     def action(event):
+        if send_combo_scancode(list(keys)):
+            return
         import pyautogui
         pyautogui.hotkey(*keys)
     return action
@@ -748,6 +856,7 @@ ACTION_TYPES = [
     "password", "multimedia", "brightness", "close", "mouse", "devsleep",
     "scene_shift", "goto_scene", "page_indicator", "hotkey_switch", "super_hotkeys",
     "action_flow", "carousel", "action_toggle",
+    "play_audio", "stop_audio",
     "next_page", "prev_page", "goto_page", "home",
 ]
 
@@ -824,6 +933,9 @@ def from_spec(spec: dict | None):
         return carousel(spec.get("script", ""))
     if t == "action_toggle":
         return action_toggle(spec.get("a", {}), spec.get("b", {}))
+    if t in ("play_audio", "stop_audio"):
+        from . import audio as _audio
+        return _audio.action_from_spec(spec)
     if t.startswith("obs_"):
         from . import obs as _obs
         return _obs.action_from_spec(spec)

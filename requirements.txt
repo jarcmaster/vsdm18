@@ -4,6 +4,8 @@ Pillow>=10.0        # generar las imagenes 64x64 JPEG de las teclas
 
 # Opcionales (solo si usas esas acciones):
 # pyautogui>=0.9    # enviar combinaciones de teclas / hotkeys
+# sounddevice>=0.4  # accion Audio Player: elegir dispositivo de salida
+# soundfile>=0.12   # accion Audio Player: leer wav/mp3/ogg/flac (libsndfile 1.1)
 
 # Para empaquetar a .exe + instalador (solo build):
 # pyinstaller>=6    # genera StreamDockM18.exe (bandeja)
