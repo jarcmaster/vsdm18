@@ -39,6 +39,14 @@ def build():
            "--add-data", f"README.md{SEP}.",
            "--add-data", f"streamdock_m18{SEP}streamdock_m18",
            "--hidden-import", "hid",
+           # Audio Player (import perezoso en streamdock_m18/audio.py): forzamos
+           # su inclusion para que los hooks de PyInstaller empaqueten las DLLs
+           # nativas (PortAudio de sounddevice, libsndfile de soundfile).
+           "--hidden-import", "sounddevice",
+           "--hidden-import", "soundfile",
+           "--hidden-import", "numpy",
+           "--hidden-import", "cffi",
+           "--hidden-import", "_cffi_backend",
            "-y"]
     print(">>", " ".join(cmd))
     subprocess.check_call(cmd, cwd=HERE)
