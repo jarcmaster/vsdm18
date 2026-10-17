@@ -1,8 +1,8 @@
 @echo off
 REM ============================================================
-REM  Primera vez: inicializa el repo y lo sube a GitHub.
-REM  (Equivalente a los comandos del quickstart de GitHub.)
-REM  Ya ejecutado una vez; util para reconfigurar en otra PC.
+REM  First time: initialize the repo and push it to GitHub.
+REM  (Equivalent to GitHub's quickstart commands.)
+REM  Already run once; useful to set up again on another PC.
 REM ============================================================
 cd /d "%~dp0"
 

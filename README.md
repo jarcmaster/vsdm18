@@ -1,127 +1,129 @@
 # Stream Dock M18 by JARCMASTER
 
-**v1.0.0** — Alternativa libre, en Python, para configurar y usar el **VSDinside /
-Mirabox Stream Dock M18** (USB `0x5548:0x1000`) **sin el software oficial**.
+**v1.0.0** — A free, open, Python alternative to configure and use the
+**VSDinside / Mirabox Stream Dock M18** (USB `0x5548:0x1000`) **without the
+official software**.
 
-Habla USB-HID directo con el equipo (driver propio, protocolo documentado por la
-comunidad), con un configurador visual (Flet), un server que corre en la bandeja
-del sistema y navegación por **Escenas → Páginas** como el software oficial.
+It talks USB-HID directly to the device (custom driver, community-documented
+protocol), with a visual configurator (Flet), a server that runs in the system
+tray, and **Scenes → Pages** navigation just like the official app.
 
-> ⚠️ **Úsalo bajo tu propio riesgo.** No es un producto oficial de Mirabox/VSD.
-> El autor no asume ninguna responsabilidad por daños. Licencia **MIT**.
+> ⚠️ **Use it entirely at your own risk.** This is not an official Mirabox/VSD
+> product. The author assumes no responsibility for any damage. **MIT** licensed.
 
 ---
 
-## ✨ Funciones
+## ✨ Features
 
-- **Escenas → Páginas (infinitas).** Panel de *Escenas* (perfiles) a la izquierda;
-  barra de *páginas* `1 2 3 +` bajo el equipo. Reordena escenas con *drag & drop*,
-  marca la escena/página por defecto con ★, exporta/importa escenas sueltas.
-- **15 teclas LCD + 3 botones laterales** (PREV / HOME / NEXT) totalmente configurables.
-- **Librería de acciones** (arrastrar y soltar):
-  - **Website**, **Hotkey**, **HotkeySwitch**, **Super Hotkeys** (selector visual de teclas),
-  - **Mouse event**: clic/scroll, mover a **X/Y por monitor**, y **grabar/reproducir rutinas**
-    del ratón (+ teclado) con velocidad 1×–5×, hotkey de parada y aviso en pantalla,
-  - **Open / Open an app / Close** (cerrar o *matar* apps por nombre o ruta),
-  - **Text**, **Password**, **Multimedia**, **Brillo**, **devsleep**,
+- **Scenes → Pages (unlimited).** *Scenes* (profiles) panel on the left; a *pages*
+  bar `1 2 3 +` under the device. Reorder scenes with drag & drop, mark the default
+  scene/page with ★, export/import individual scenes.
+- **15 LCD keys + 3 side buttons** (PREV / HOME / NEXT), fully configurable.
+- **Action library** (drag & drop):
+  - **Website**, **Hotkey**, **HotkeySwitch**, **Super Hotkeys** (visual key picker),
+  - **Mouse event**: click/scroll, move to **X/Y per monitor**, and **record/replay
+    mouse routines** (+ keyboard) with 1×–5× speed, a stop hotkey and an on-screen notice,
+  - **Open / Open an app / Close** (close or *kill* apps by name or path),
+  - **Text**, **Password**, **Multimedia**, **Brightness**, **devsleep**,
   - **Operation Flow**: Action flow, Carousel, Action Toggle,
-  - **OBS Studio**: grabar, transmitir, cámara virtual, escena, fuente, mixer, etc.
-  - **Navegación**: Previous/Next Page, Go to Page, Page Indicator, **Scene Shift**, Go to Scene.
-- **Copiar / Pegar / Mover** teclas (clic derecho y *drag & drop* entre teclas).
-- **Galería de iconos** integrada + imágenes personalizadas por tecla.
-- **Ajustes del equipo (⚙):** nº de serie, firmware, apagado automático de pantalla,
-  **rotación** (0/90/180/270, por software), **color e intensidad del LED lateral**,
-  **iniciar con Windows**, y **exportar/importar** toda la configuración.
-- **11 idiomas:** EN · ES · IT · RU · ZH · JA · KO · FR · DE · PT · AR.
-- **Bandeja + reflejo en vivo:** el server mantiene el equipo funcionando y **cualquier
-  cambio en el configurador se aplica al instante** en el hardware.
-- **Arranque con Windows** automático y un solo ejecutable.
+  - **OBS Studio**: record, stream, virtual camera, scene, source, mixer, etc.
+  - **Navigation**: Previous/Next Page, Go to Page, Page Indicator, **Scene Shift**, Go to Scene.
+- **Copy / Paste / Move** keys (right-click and drag & drop between keys).
+- **Built-in icon gallery** + custom per-key images.
+- **Device settings (⚙):** serial number, firmware, automatic screen-off,
+  **rotation** (0/90/180/270, software-side), **side LED color & intensity**,
+  **start with Windows**, and **export/import** of the whole configuration.
+- **11 languages:** EN · ES · IT · RU · ZH · JA · KO · FR · DE · PT · AR.
+- **Tray + live reflection:** the server keeps the device running and **any change
+  in the configurator is applied instantly** on the hardware.
+- **Starts with Windows** automatically, in a single executable.
 
 ---
 
-## 🚀 Instalación (usuario final)
+## 🚀 Installation (end user)
 
-**Un solo ejecutable.** No necesitas instalar Python.
+**A single executable.** No Python installation required.
 
-1. Descarga/genera `StreamDockM18.exe` (ver *Compilar*).
-2. Ejecútalo. La primera vez:
-   - copia iconos y config a `%APPDATA%\Stream Dock M18 by JARCMASTER`,
-   - se registra para **iniciar con Windows**,
-   - arranca el **server** y queda en la **bandeja** del sistema.
-3. **Clic derecho en el icono de la bandeja → Open Configurator** para abrir la UI
-   (o un acceso directo con el parámetro `--config`).
+1. Download/build `StreamDockM18.exe` (see *Build*).
+2. Run it. On first launch it:
+   - copies icons and config to `%APPDATA%\Stream Dock M18 by JARCMASTER`,
+   - registers itself to **start with Windows**,
+   - launches the **server** and lives in the **system tray**.
+3. **Right-click the tray icon → Open Configurator** to open the UI
+   (or a shortcut with the `--config` parameter).
 
-Requisitos: **Windows 10/11 (64 bits)**, cable **USB-C de datos**, y **cerrar el
-software oficial de VSD** (el equipo admite un solo dueño del USB). La primera vez
-Windows SmartScreen puede avisar (exe sin firmar) → *Más información → Ejecutar de todos modos*.
+Requirements: **Windows 10/11 (64-bit)**, a **USB-C data cable**, and **close the
+official VSD software** (the device allows only one USB owner). On first run Windows
+SmartScreen may warn (unsigned exe) → *More info → Run anyway*.
 
-### Instalador (opcional)
-`iscc installer.iss` (requiere **Inno Setup 6**) genera un único *Setup.exe* que
-instala, crea accesos directos, registra el arranque y lanza la app.
+### Installer (optional)
+`iscc installer.iss` (requires **Inno Setup 6**) produces a single *Setup.exe* that
+installs the app, creates shortcuts, registers startup and launches it.
 
 ---
 
-## 🧑‍💻 Desde el código fuente
+## 🧑‍💻 From source
 
 ```bash
-pip install -r requirements.txt   # hidapi, Pillow (+ pyautogui, flet opcionales)
+pip install -r requirements.txt   # hidapi, Pillow (+ pyautogui, flet optional)
 
-python configurator_flet.py       # abrir el configurador
-python run_config.py              # ejecutar la config en el equipo (headless)
-python tray_app.py                # server + bandeja
+python configurator_flet.py       # open the configurator
+python run_config.py              # run a config on the device (headless)
+python tray_app.py                # server + tray
 ```
 
-## 🔨 Compilar a .exe
+## 🔨 Build to .exe
 
 ```bash
 pip install pyinstaller flet
-python build.py                   # -> dist/StreamDockM18.exe  (un solo exe)
-iscc installer.iss                # -> instalador (opcional, Inno Setup)
+python build.py                   # -> dist/StreamDockM18.exe  (single exe)
+iscc installer.iss                # -> installer (optional, Inno Setup)
 ```
 
-El exe único hace de **server/bandeja** (sin args) y de **configurador** (`--config`).
+The single exe acts as **server/tray** (no args) and as the **configurator** (`--config`).
 
 ---
 
-## 🧭 Cómo se usa (resumen)
+## 🧭 How to use (quick reference)
 
-| Elemento | Qué hace |
+| Element | What it does |
 |---|---|
-| **Escenas** (panel izq.) | Perfiles. `+` / 🗑 / ⬆ exportar / ⬇ importar · ★ por defecto · arrastra para reordenar |
-| **Páginas** (barra `1 2 3 +`) | Pantallas de la escena actual · doble clic en un nº = Inicio |
-| **Teclas** | Arrastra una acción de la librería · doble clic para editar · clic derecho Copiar/Pegar/Vaciar · arrastra una tecla sobre otra para mover |
-| **PREV / HOME / NEXT** | Clic para asignarles acción de navegación |
-| **⚙ Ajustes** | Serial/firmware, screen-off, rotación, LED, inicio con Windows, export/import |
-| **Bandeja** | Open Configurator · Exit |
+| **Scenes** (left panel) | Profiles. `+` / 🗑 / ⬆ export / ⬇ import · ★ default · drag to reorder |
+| **Pages** (`1 2 3 +` bar) | Screens of the current scene · double-click a number = Home |
+| **Keys** | Drag an action from the library · double-click to edit · right-click Copy/Paste/Clear · drag one key onto another to move |
+| **PREV / HOME / NEXT** | Click to assign a navigation action |
+| **⚙ Settings** | Serial/firmware, screen-off, rotation, LED, start with Windows, export/import |
+| **Tray** | Open Configurator · Exit |
 
-Dentro de la app: **⚙ → Cómo usar** (guía completa) y **⚙ → Acerca de**.
-
----
-
-## 📁 Estructura
-
-```
-configurator_flet.py   UI del configurador (Flet)
-tray_app.py            server + bandeja (Win32)
-main.py                punto de entrada único (dispatch server / --config)
-m18_paths.py           rutas compartidas, autostart, datos de usuario
-i18n_extra.py          traducciones (11 idiomas)
-mouse_overlay.py       aviso flotante para grabar/reproducir ratón
-run_config.py          ejecutar una config sin UI
-streamdock_m18/        driver HID + acciones + capa de app
-icons/ · assets/       librería de iconos y recursos
-build.py · installer.iss   empaquetado
-```
+In-app: **⚙ → How to use** (full guide) and **⚙ → About**.
 
 ---
 
-## ⚖️ Licencia
+## 📁 Project layout
 
-**MIT** © 2026 **Jose A. Rodriguez C.** — ver [LICENSE](LICENSE).
+```
+configurator_flet.py   configurator UI (Flet)
+tray_app.py            server + tray (Win32)
+main.py                single entry point (server / --config dispatch)
+m18_paths.py           shared paths, autostart, user data
+i18n_extra.py          translations (11 languages)
+mouse_overlay.py       floating notice for mouse record/replay
+run_config.py          run a config without the UI
+streamdock_m18/        HID driver + actions + app layer
+icons/ · assets/       icon library and resources
+build.py · installer.iss   packaging
+```
 
-El software se entrega "TAL CUAL", **sin garantía**. Lo usas **bajo tu propio riesgo**;
-el autor **no asume responsabilidad** por ningún daño en tu equipo o computadora.
+---
 
-## 👤 Autor
+## ⚖️ License
+
+**MIT** © 2026 **Jose A. Rodriguez C.** — see [LICENSE](LICENSE).
+
+The software is provided "AS IS", **without warranty**. You use it **at your own
+risk**; the author assumes **no responsibility** for any damage to your device or
+computer.
+
+## 👤 Author
 
 **Jose A. Rodriguez C.** · ✉️ jarcmaster@gmail.com · 🔗 https://github.com/jarcmaster/vsdm18
