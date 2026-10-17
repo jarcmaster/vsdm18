@@ -563,10 +563,17 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 0
     try:
-        page.window.width = 1280
-        page.window.height = 1040
+        # Tamano por defecto ajustado para que la imagen central del equipo y los
+        # tres paneles se vean completos sin espacio sobrante. El usuario puede
+        # maximizar o redimensionar luego (se respetan los minimos).
+        page.window.width = 1371
+        page.window.height = 868
+        page.window.min_width = 1100   # 250 (escenas) + ~560 (equipo) + 270 (libreria)
         page.window.min_height = 700
-        page.window.top = 20
+        try:
+            page.window.center()       # centrar en la pantalla al abrir
+        except Exception:
+            page.window.top = 20
         _ico = os.path.join(m18_paths.assets_dir(), "app.ico")
         if os.path.exists(_ico):
             page.window.icon = _ico
@@ -736,7 +743,10 @@ def main(page: ft.Page):
         if not os.path.isdir(ICONS_DIR):
             info(t("gal_no_icons")); return
         cats = [d for d in sorted(os.listdir(ICONS_DIR)) if os.path.isdir(os.path.join(ICONS_DIR, d))]
-        cat_dd = ft.Dropdown(label=t("ui_category"), value=cats[0] if cats else None,
+        # recordar la ultima categoria/subcarpeta usada en la sesion (no siempre "general")
+        last_cat = state.get("gal_cat")
+        default_cat = last_cat if last_cat in cats else (cats[0] if cats else None)
+        cat_dd = ft.Dropdown(label=t("ui_category"), value=default_cat,
                              options=[ft.DropdownOption(key=c, text=c) for c in cats],
                              width=180, on_select=lambda e: on_cat())
         sub_dd = ft.Dropdown(label=t("ui_subfolder"), options=[], width=220, on_select=lambda e: load())
@@ -750,16 +760,19 @@ def main(page: ft.Page):
             return base if (not sub_dd.value or sub_dd.value == t("gal_root")) else os.path.join(base, sub_dd.value)
 
         def on_cat():
+            state["gal_cat"] = cat_dd.value   # recordar categoria elegida
             base = os.path.join(ICONS_DIR, cat_dd.value)
             subs = [d for d in sorted(os.listdir(base)) if os.path.isdir(os.path.join(base, d))]
             has = any(f.lower().endswith(IMG_EXT) for f in os.listdir(base))
             vals = ([t("gal_root")] if has else []) + subs
             sub_dd.options = [ft.DropdownOption(key=v, text=v) for v in vals]
-            sub_dd.value = vals[0] if vals else None
+            remembered = state.get("gal_sub")
+            sub_dd.value = remembered if remembered in vals else (vals[0] if vals else None)
             sub_dd.update()
             load()
 
         def load():
+            state["gal_sub"] = sub_dd.value   # recordar subcarpeta elegida
             grid.controls.clear()
             fo = folder()
             if fo and os.path.isdir(fo):
@@ -2566,15 +2579,19 @@ def main(page: ft.Page):
                 icon_color="#ffd36b" if isdef else "#5c6577",
                 tooltip=t("scn_set_default"), width=28, height=28,
                 on_click=lambda e, idx=i: set_default_scene(idx))
-            row = ft.Container(
-                content=ft.Row([
+            inner = ft.Row([
                     ft.Icon(I.DRAG_INDICATOR, size=16, color="#5c6577"),
                     ft.Text(name, size=13, expand=True,
                             color="#ffffff" if sel else "#cfcfcf", no_wrap=True),
                     ft.Text(f"{npg}▦", size=11, color="#7f8aa0"),
-                    star_btn], spacing=4),
-                bgcolor="#2a3550" if sel else None, border_radius=6, padding=ft.Padding(8, 2, 4, 2),
-                ink=True, on_click=lambda e, idx=i: select_scene(idx))
+                    star_btn], spacing=4)
+            row = ft.Container(
+                content=ft.GestureDetector(
+                    content=inner,
+                    on_tap=lambda e, idx=i: select_scene(idx),
+                    on_double_tap=lambda e, idx=i: rename_scene(idx)),
+                bgcolor="#2a3550" if sel else None, border_radius=6,
+                padding=ft.Padding(8, 2, 4, 2), tooltip=t("scn_rename_hint"))
             drag = ft.Draggable(
                 group="scene", content=row,
                 on_drag_start=lambda e, idx=i: state.__setitem__("drag_scene", idx),
@@ -2590,6 +2607,27 @@ def main(page: ft.Page):
         state["sel_page"] = 0
         state["sel_key"] = None
         refresh_scenes(); refresh_page_bar(); refresh_device()
+
+    def rename_scene(idx):
+        scenes = state["cfg"]["scenes"]
+        if not (0 <= idx < len(scenes)):
+            return
+        sc = scenes[idx]
+        tf = ft.TextField(label=t("scn_name"), value=sc.get("name", ""),
+                          autofocus=True, width=320)
+
+        def do_save(e=None):
+            new = (tf.value or "").strip()
+            if new:
+                sc["name"] = new
+            page.pop_dialog()
+            refresh_scenes()
+
+        tf.on_submit = do_save
+        page.show_dialog(ft.AlertDialog(modal=True, title=ft.Text(t("scn_rename")),
+            content=ft.Container(width=340, content=tf),
+            actions=[ft.FilledButton(t("save"), icon=I.CHECK, on_click=do_save),
+                     ft.TextButton(t("cancel"), on_click=lambda e: page.pop_dialog())]))
 
     def new_scene(e):
         state["cfg"]["scenes"].append(
