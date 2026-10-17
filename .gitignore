@@ -9,6 +9,9 @@ dist/
 dist_app/
 *.spec
 
+# Ejecutables (nunca subir el .exe)
+*.exe
+
 # Temporales
 *.tmp
 config.json.tmp
