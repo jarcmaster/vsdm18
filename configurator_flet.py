@@ -1012,6 +1012,54 @@ def main(page: ft.Page):
                      ft.TextButton(t("cancel"), on_click=lambda e: page.pop_dialog())])
         page.show_dialog(dlg); refr()
 
+    def _open_url(url):
+        try:
+            import webbrowser
+            webbrowser.open(url)
+        except Exception:
+            pass
+
+    def show_about(e=None):
+        rows = [
+            ft.Row([ft.Text(f"{t('about_author')}:", width=90, color="#9fb4d6"),
+                    ft.Text("Jose A. Rodriguez C.", selectable=True)]),
+            ft.Row([ft.Text("Email:", width=90, color="#9fb4d6"),
+                    ft.Text("jarcmaster@gmail.com", selectable=True)]),
+            ft.Row([ft.Text(f"{t('about_version')}:", width=90, color="#9fb4d6"),
+                    ft.Text(APP_VERSION)]),
+            ft.Row([ft.Text(f"{t('about_license')}:", width=90, color="#9fb4d6"),
+                    ft.Text("MIT License")]),
+            ft.Divider(),
+            ft.Text(t("about_disclaimer"), size=11, color="#cfcfcf"),
+            ft.TextButton("github.com/jarcmaster/vsdm18", icon=I.LINK,
+                          on_click=lambda e: _open_url("https://github.com/jarcmaster/vsdm18")),
+        ]
+        page.show_dialog(ft.AlertDialog(modal=True,
+            title=ft.Row([ft.Icon(I.INFO_OUTLINE, color="#4fe3ff"),
+                          ft.Text(f"{t('about')} — {APP_NAME} v{APP_VERSION}",
+                                  weight=ft.FontWeight.BOLD)]),
+            content=ft.Container(width=480, content=ft.Column(rows, tight=True, spacing=8)),
+            actions=[ft.TextButton(t("ok"), on_click=lambda e: page.pop_dialog())]))
+
+    def show_help(e=None):
+        guide = [(I.LAYERS, "help_scenes"), (I.TAG, "help_pages"),
+                 (I.APPS, "help_keys"), (I.HANDYMAN, "help_actions"),
+                 (I.SETTINGS, "help_settings"), (I.ALL_INBOX, "help_tray")]
+        rows = []
+        for ic, key in guide:
+            rows.append(ft.Row([ft.Icon(ic, size=18, color="#4fe3ff"),
+                                ft.Text(t(key), size=12, expand=True)],
+                               vertical_alignment=ft.CrossAxisAlignment.START, spacing=10))
+            rows.append(ft.Divider(height=6))
+        rows.append(ft.TextButton(t("about"), icon=I.INFO_OUTLINE,
+                                  on_click=lambda e: (page.pop_dialog(), show_about())))
+        page.show_dialog(ft.AlertDialog(modal=True,
+            title=ft.Row([ft.Icon(I.HELP_OUTLINE, color="#4fe3ff"),
+                          ft.Text(t("help_title"), weight=ft.FontWeight.BOLD)]),
+            content=ft.Container(width=560, height=560,
+                content=ft.Column(rows, spacing=8, scroll=ft.ScrollMode.ALWAYS)),
+            actions=[ft.TextButton(t("ok"), on_click=lambda e: page.pop_dialog())]))
+
     def show_device_settings(e=None):
         dev_cfg = state["cfg"].setdefault("device", {})
         try:
@@ -1208,6 +1256,8 @@ def main(page: ft.Page):
             ft.Divider(height=8),
             ft.Row([ft.FilledButton(t("set_export"), icon=I.FILE_UPLOAD, on_click=do_export),
                     ft.FilledButton(t("set_import"), icon=I.FILE_DOWNLOAD, on_click=do_import)]),
+            ft.Row([ft.TextButton(t("help_title"), icon=I.HELP_OUTLINE, on_click=show_help),
+                    ft.TextButton(t("about"), icon=I.INFO_OUTLINE, on_click=show_about)]),
             ft.Row([ft.TextButton(t("set_user_guide"), icon=I.MENU_BOOK, on_click=user_guide),
                     ft.TextButton(t("set_open_folder"), icon=I.FOLDER_OPEN, on_click=open_folder)]),
             ft.TextButton(t("set_reset_device"), icon=I.RESTART_ALT, on_click=reset_device),

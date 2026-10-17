@@ -1,138 +1,127 @@
-# Manejador propio para VSD / Mirabox Stream Dock M18
+# Stream Dock M18 by JARCMASTER
 
-Driver en Python que habla **USB HID directamente** con el Stream Dock M18, sin
-el software del fabricante. Permite **configurar cada tecla y su acción**.
+**v1.0.0** — Alternativa libre, en Python, para configurar y usar el **VSDinside /
+Mirabox Stream Dock M18** (USB `0x5548:0x1000`) **sin el software oficial**.
 
-El M18 tiene 15 teclas LCD (64×64 px), 3 botones físicos, un anillo RGB de 24
-LEDs y se conecta por USB-C. Identificación HID: `VID 0x5548 / PID 0x1000`.
+Habla USB-HID directo con el equipo (driver propio, protocolo documentado por la
+comunidad), con un configurador visual (Flet), un server que corre en la bandeja
+del sistema y navegación por **Escenas → Páginas** como el software oficial.
 
-## Instalación
+> ⚠️ **Úsalo bajo tu propio riesgo.** No es un producto oficial de Mirabox/VSD.
+> El autor no asume ninguna responsabilidad por daños. Licencia **MIT**.
 
-```powershell
-pip install -r requirements.txt
+---
+
+## ✨ Funciones
+
+- **Escenas → Páginas (infinitas).** Panel de *Escenas* (perfiles) a la izquierda;
+  barra de *páginas* `1 2 3 +` bajo el equipo. Reordena escenas con *drag & drop*,
+  marca la escena/página por defecto con ★, exporta/importa escenas sueltas.
+- **15 teclas LCD + 3 botones laterales** (PREV / HOME / NEXT) totalmente configurables.
+- **Librería de acciones** (arrastrar y soltar):
+  - **Website**, **Hotkey**, **HotkeySwitch**, **Super Hotkeys** (selector visual de teclas),
+  - **Mouse event**: clic/scroll, mover a **X/Y por monitor**, y **grabar/reproducir rutinas**
+    del ratón (+ teclado) con velocidad 1×–5×, hotkey de parada y aviso en pantalla,
+  - **Open / Open an app / Close** (cerrar o *matar* apps por nombre o ruta),
+  - **Text**, **Password**, **Multimedia**, **Brillo**, **devsleep**,
+  - **Operation Flow**: Action flow, Carousel, Action Toggle,
+  - **OBS Studio**: grabar, transmitir, cámara virtual, escena, fuente, mixer, etc.
+  - **Navegación**: Previous/Next Page, Go to Page, Page Indicator, **Scene Shift**, Go to Scene.
+- **Copiar / Pegar / Mover** teclas (clic derecho y *drag & drop* entre teclas).
+- **Galería de iconos** integrada + imágenes personalizadas por tecla.
+- **Ajustes del equipo (⚙):** nº de serie, firmware, apagado automático de pantalla,
+  **rotación** (0/90/180/270, por software), **color e intensidad del LED lateral**,
+  **iniciar con Windows**, y **exportar/importar** toda la configuración.
+- **11 idiomas:** EN · ES · IT · RU · ZH · JA · KO · FR · DE · PT · AR.
+- **Bandeja + reflejo en vivo:** el server mantiene el equipo funcionando y **cualquier
+  cambio en el configurador se aplica al instante** en el hardware.
+- **Arranque con Windows** automático y un solo ejecutable.
+
+---
+
+## 🚀 Instalación (usuario final)
+
+**Un solo ejecutable.** No necesitas instalar Python.
+
+1. Descarga/genera `StreamDockM18.exe` (ver *Compilar*).
+2. Ejecútalo. La primera vez:
+   - copia iconos y config a `%APPDATA%\Stream Dock M18 by JARCMASTER`,
+   - se registra para **iniciar con Windows**,
+   - arranca el **server** y queda en la **bandeja** del sistema.
+3. **Clic derecho en el icono de la bandeja → Open Configurator** para abrir la UI
+   (o un acceso directo con el parámetro `--config`).
+
+Requisitos: **Windows 10/11 (64 bits)**, cable **USB-C de datos**, y **cerrar el
+software oficial de VSD** (el equipo admite un solo dueño del USB). La primera vez
+Windows SmartScreen puede avisar (exe sin firmar) → *Más información → Ejecutar de todos modos*.
+
+### Instalador (opcional)
+`iscc installer.iss` (requiere **Inno Setup 6**) genera un único *Setup.exe* que
+instala, crea accesos directos, registra el arranque y lanza la app.
+
+---
+
+## 🧑‍💻 Desde el código fuente
+
+```bash
+pip install -r requirements.txt   # hidapi, Pillow (+ pyautogui, flet opcionales)
+
+python configurator_flet.py       # abrir el configurador
+python run_config.py              # ejecutar la config en el equipo (headless)
+python tray_app.py                # server + bandeja
 ```
 
-`hidapi` (comunicación USB) y `Pillow` (imágenes de las teclas) son obligatorios.
-`pyautogui` solo si usas acciones de combinaciones de teclas.
+## 🔨 Compilar a .exe
 
-> **Importante:** cierra el software oficial de VSD/Mirabox antes de usar esto.
-> Si está abierto, tiene tomado el dispositivo y el acceso HID fallará.
-
-## Prueba rápida
-
-```powershell
-python scan.py            # ¿se ve el dispositivo? vuelca las pulsaciones en crudo
-python configurator.py    # app grafica para crear paginas/teclas y guardarlas
-python run_config.py config.json   # ejecuta la config que guardaste
+```bash
+pip install pyinstaller flet
+python build.py                   # -> dist/StreamDockM18.exe  (un solo exe)
+iscc installer.iss                # -> instalador (opcional, Inno Setup)
 ```
 
-## App de configuración (recomendado)
+El exe único hace de **server/bandeja** (sin args) y de **configurador** (`--config`).
 
-```powershell
-python configurator.py
-```
+---
 
-Con la app puedes, sin tocar código:
+## 🧭 Cómo se usa (resumen)
 
-- **Páginas:** crear, borrar, renombrar y **reordenar** (▲ Subir / ▼ Bajar).
-  Cada página tiene sus 15 teclas (0–14).
-- **Teclas:** clic en una tecla del grid para editar texto, color de letra/fondo,
-  icono (imagen) y **acción**.
-- **Acciones:** `run` (lanzar app), `open_url`, `hotkey`, `write_text`,
-  y navegación entre páginas: `next_page`, `prev_page`, `goto_page`, `home`.
-- **Página por defecto:** botón **★ Marcar por defecto**. Esa página (marcada
-  con ★) es la que se carga al arrancar, y deja el **botón central** con la
-  acción `home`, de modo que al pulsarlo se vuelve a ella desde cualquier página.
-- **Botones laterales** (`left`/`mid`/`right`): asignarles una acción
-  (típico: left=anterior, right=siguiente, mid=página por defecto).
-- **Conectar** + **Previsualizar página**: ver la página en el M18 real mientras
-  la diseñas.
-- **Guardar/Cargar** la configuración en `config.json`.
-
-Luego la pones en marcha con:
-
-```powershell
-python run_config.py config.json
-```
-
-## Configurar teclas y acciones
-
-```python
-from streamdock_m18 import StreamDockApp, Key, actions
-
-app = StreamDockApp(
-    brightness=80,
-    keys={
-        0:  Key(text="Notas", on_press=actions.run("notepad.exe")),
-        1:  Key(text="VSD",   on_press=actions.open_url("https://www.vsdinside.com")),
-        3:  Key(text="Copiar", on_press=actions.hotkey("ctrl", "c")),
-        14: Key(image="icono.png", on_press=actions.func(mi_funcion)),
-        "right": Key(on_press=actions.func(lambda: print("botón derecho"))),
-    },
-)
-app.run()
-```
-
-Numeración de las teclas LCD (izquierda→derecha, arriba→abajo):
-
-```
- 0  1  2  3  4
- 5  6  7  8  9
-10 11 12 13 14
-```
-
-Botones físicos (sin pantalla): `"left"`, `"mid"`, `"right"`.
-
-### Acciones disponibles (`streamdock_m18.actions`)
-
-| Acción | Qué hace |
+| Elemento | Qué hace |
 |---|---|
-| `run("app.exe", ...)` | Lanza un programa |
-| `open_url("https://...")` | Abre una URL |
-| `hotkey("ctrl", "c")` | Envía una combinación de teclas (necesita `pyautogui`) |
-| `write_text("hola")` | Teclea un texto (necesita `pyautogui`) |
-| `func(mi_funcion)` | Ejecuta una función tuya |
-| `sequence(a1, a2, ...)` | Varias acciones en orden |
+| **Escenas** (panel izq.) | Perfiles. `+` / 🗑 / ⬆ exportar / ⬇ importar · ★ por defecto · arrastra para reordenar |
+| **Páginas** (barra `1 2 3 +`) | Pantallas de la escena actual · doble clic en un nº = Inicio |
+| **Teclas** | Arrastra una acción de la librería · doble clic para editar · clic derecho Copiar/Pegar/Vaciar · arrastra una tecla sobre otra para mover |
+| **PREV / HOME / NEXT** | Clic para asignarles acción de navegación |
+| **⚙ Ajustes** | Serial/firmware, screen-off, rotación, LED, inicio con Windows, export/import |
+| **Bandeja** | Open Configurator · Exit |
 
-También puedes usar cualquier `callable` que reciba el `KeyEvent`.
+Dentro de la app: **⚙ → Cómo usar** (guía completa) y **⚙ → Acerca de**.
 
-## API de bajo nivel (`streamdock_m18.device.StreamDockM18`)
+---
 
-```python
-from streamdock_m18 import StreamDockM18
+## 📁 Estructura
 
-with StreamDockM18() as dev:
-    dev.set_brightness(80)                 # brillo LCD 0-100
-    dev.set_key_text(0, "Hola")            # texto en una tecla
-    dev.set_key_image(1, "icono.png")      # imagen (se reescala a 64x64)
-    dev.clear_key(2)                       # borra una tecla
-    dev.set_leds([(0, 128, 255)] * 24)     # anillo RGB
-    dev.set_led_brightness(60)             # (enviar DESPUÉS del color)
-    for ev in dev.events():                # bucle de pulsaciones
-        print(ev)
+```
+configurator_flet.py   UI del configurador (Flet)
+tray_app.py            server + bandeja (Win32)
+main.py                punto de entrada único (dispatch server / --config)
+m18_paths.py           rutas compartidas, autostart, datos de usuario
+i18n_extra.py          traducciones (11 idiomas)
+mouse_overlay.py       aviso flotante para grabar/reproducir ratón
+run_config.py          ejecutar una config sin UI
+streamdock_m18/        driver HID + acciones + capa de app
+icons/ · assets/       librería de iconos y recursos
+build.py · installer.iss   empaquetado
 ```
 
-## Cómo funciona el protocolo (resumen)
+---
 
-- **Escritura:** 1025 bytes = `0x00` (report id) + reporte de 1024 bytes. El
-  reporte empieza con `CRT\0\0` seguido del comando ASCII
-  (`CONNECT`, `LIG`, `SETLB`, ...).
-- **Imágenes (`BAT`):** cabecera `CRT\0\0` + `BAT\0\0` + tamaño (u16 big-endian)
-  + id_tecla en su propia página; luego el **JPEG en páginas crudas de 1024
-  bytes SIN prefijo**; y por último `STP` para confirmar.
-  > ⚠️ Detalle crítico: el comando es `BAT\0\0` (5 bytes), el tamaño va DESPUÉS
-  > de esos dos nulls. Si pegas el tamaño justo tras `BAT`, el dispositivo no
-  > pinta nada (y no da error).
-- **Lectura:** reportes de 512 bytes; el id de tecla está en el offset 9 y el
-  estado (1=pulsada, 0=soltada) en el 10.
-- **Numeración de teclas:** ⚠️ es DISTINTA para imágenes y para pulsaciones
-  (invertida verticalmente). Imágenes: fila de arriba `0x0b–0x0f`. Pulsaciones:
-  fila de arriba `0x01–0x05`. El driver ya mapea ambas a la misma posición
-  lógica 0..14, así que no tienes que preocuparte.
-- **Keepalive:** hay que reenviar el brillo (`LIG`) cada ~8 s o el dispositivo
-  vuelve a su pantalla de fábrica. El bucle de eventos ya lo hace solo.
+## ⚖️ Licencia
 
-## Créditos del protocolo
+**MIT** © 2026 **Jose A. Rodriguez C.** — ver [LICENSE](LICENSE).
 
-Ingeniería inversa de la comunidad:
-[bidoofgoo/streamdock-m18](https://github.com/bidoofgoo/streamdock-m18).
+El software se entrega "TAL CUAL", **sin garantía**. Lo usas **bajo tu propio riesgo**;
+el autor **no asume responsabilidad** por ningún daño en tu equipo o computadora.
+
+## 👤 Autor
+
+**Jose A. Rodriguez C.** · ✉️ jarcmaster@gmail.com · 🔗 https://github.com/jarcmaster/vsdm18
