@@ -1,0 +1,11 @@
+# Driver propio para VSD / Mirabox Stream Dock M18
+hidapi>=0.14        # comunicacion USB HID con el dispositivo  -> import hid
+Pillow>=10.0        # generar las imagenes 64x64 JPEG de las teclas
+
+# Opcionales (solo si usas esas acciones):
+# pyautogui>=0.9    # enviar combinaciones de teclas / hotkeys
+
+# Para empaquetar a .exe + instalador (solo build):
+# pyinstaller>=6    # genera StreamDockM18.exe (bandeja)
+# flet>=1.0         # 'flet pack' genera Configurator.exe
+# Inno Setup 6 (iscc) para compilar installer.iss  ->  https://jrsoftware.org/

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Empaquetado / build (artefactos pesados, NO subir)
+build/
+dist/
+dist_app/
+*.spec
+
+# Temporales
+*.tmp
+config.json.tmp
+
+# Backups / exports del usuario
+BK*.json
+
+# Flet
+.flet/
+
+# Sistema
+Thumbs.db
+desktop.ini
