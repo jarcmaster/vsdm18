@@ -1767,14 +1767,14 @@ def main(page: ft.Page):
 
         async def do_export(e):
             path = await file_picker.save_file(
-                dialog_title=t("set_export"), file_name="stream_dock_m18_config.json",
-                file_type=ft.FilePickerFileType.CUSTOM, allowed_extensions=["json"])
+                dialog_title=t("set_export"), file_name="stream_dock_m18_config.zip",
+                file_type=ft.FilePickerFileType.CUSTOM, allowed_extensions=["zip"])
             if path:
                 try:
-                    if not path.lower().endswith(".json"):
-                        path += ".json"
-                    with open(path, "w", encoding="utf-8") as f:
-                        json.dump(state["cfg"], f, indent=2, ensure_ascii=False)
+                    if not path.lower().endswith(".zip"):
+                        path += ".zip"
+                    # paquete: config + iconos/fuentes reales (restaura identico)
+                    export_package(state["cfg"], path)
                     info(t("set_export_ok"))
                 except Exception as ex:
                     info(str(ex))
@@ -1804,12 +1804,16 @@ def main(page: ft.Page):
         async def do_import(e):
             files = await file_picker.pick_files(
                 allow_multiple=False, file_type=ft.FilePickerFileType.CUSTOM,
-                allowed_extensions=["json"])
+                allowed_extensions=["zip", "json"])
             if not files:
                 return
             try:
-                with open(files[0].path, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)
+                fp = files[0].path
+                if fp.lower().endswith(".zip"):
+                    cfg = import_package(fp)   # extrae iconos/fuentes y reubica rutas
+                else:
+                    with open(fp, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
                 if not isinstance(cfg, dict) or not (cfg.get("scenes") or cfg.get("pages")):
                     raise ValueError("no config")
             except Exception:
@@ -3785,18 +3789,16 @@ def main(page: ft.Page):
 
     async def export_scene(e):
         sc = cur_scene()
-        import copy as _cp
         name = (sc.get("name") or "scene").strip().replace(" ", "_")
         path = await file_picker.save_file(
-            dialog_title=t("scn_export"), file_name=f"m18_scene_{name}.json",
-            file_type=ft.FilePickerFileType.CUSTOM, allowed_extensions=["json"])
+            dialog_title=t("scn_export"), file_name=f"m18_scene_{name}.zip",
+            file_type=ft.FilePickerFileType.CUSTOM, allowed_extensions=["zip"])
         if path:
             try:
-                if not path.lower().endswith(".json"):
-                    path += ".json"
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump({"_type": "m18_scene", "scene": _cp.deepcopy(sc)}, f,
-                              indent=2, ensure_ascii=False)
+                if not path.lower().endswith(".zip"):
+                    path += ".zip"
+                # paquete: escena + iconos/fuentes reales (restaura identico)
+                export_package({"_type": "m18_scene", "scene": sc}, path)
                 info(t("set_export_ok"))
             except Exception as ex:
                 info(str(ex))
@@ -3804,12 +3806,16 @@ def main(page: ft.Page):
     async def import_scene(e):
         files = await file_picker.pick_files(
             allow_multiple=False, file_type=ft.FilePickerFileType.CUSTOM,
-            allowed_extensions=["json"])
+            allowed_extensions=["zip", "json"])
         if not files:
             return
         try:
-            with open(files[0].path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            fp = files[0].path
+            if fp.lower().endswith(".zip"):
+                data = import_package(fp)   # extrae iconos/fuentes y reubica rutas
+            else:
+                with open(fp, "r", encoding="utf-8") as f:
+                    data = json.load(f)
         except Exception:
             info(t("set_import_bad")); return
         new_scenes = []
@@ -4200,6 +4206,94 @@ def _build_action(t, p):
     if t in ("next_page", "prev_page", "home"):
         return {"type": t}
     return None
+
+
+# --- paquete de exportacion/importacion (config + iconos/fuentes) ------------
+def _collect_asset_fields(cfg):
+    """Devuelve (dict, campo) de cada 'image'/'font' con valor str no vacio en el cfg."""
+    out = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            for fld in ("image", "font"):
+                v = o.get(fld)
+                if isinstance(v, str) and v.strip():
+                    out.append((o, fld))
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(cfg)
+    return out
+
+
+def export_package(cfg, zip_path):
+    """Escribe un .zip con config.json (rutas de icono/fuente reescritas a
+    relativas) + los archivos reales, para restaurar identico en otro equipo."""
+    import copy
+    import zipfile
+
+    data = copy.deepcopy(cfg)
+    dd = os.path.abspath(m18_paths.data_dir())
+    seen = {}          # ruta abs original -> ruta relativa en el paquete
+    used = set()       # relativas ya usadas (para evitar colisiones)
+    files = []         # (abs, rel) a escribir en el zip
+
+    for d, fld in _collect_asset_fields(data):
+        asrc = os.path.abspath(d[fld])
+        if not os.path.isfile(asrc):
+            continue   # ruta rota: se deja el valor tal cual
+        rel = seen.get(asrc)
+        if rel is None:
+            if asrc.lower().startswith(dd.lower() + os.sep):
+                rel = os.path.relpath(asrc, dd).replace("\\", "/")
+            else:
+                sub = "fonts" if fld == "font" else "assets"
+                rel = f"{sub}/{os.path.basename(asrc)}"
+            if rel in used:   # mismo nombre, origen distinto -> desambiguar
+                stem, ext = os.path.splitext(rel)
+                i = 2
+                while f"{stem}_{i}{ext}" in used:
+                    i += 1
+                rel = f"{stem}_{i}{ext}"
+            used.add(rel); seen[asrc] = rel; files.append((asrc, rel))
+        d[fld] = rel
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("config.json", json.dumps(data, indent=2, ensure_ascii=False))
+        for asrc, rel in files:
+            try:
+                z.write(asrc, rel)
+            except Exception as ex:
+                print("[export-pkg]", rel, ex)
+
+
+def import_package(zip_path):
+    """Extrae un .zip de export_package: copia iconos/fuentes a data_dir() y
+    devuelve el cfg con las rutas reescritas a las locales absolutas."""
+    import zipfile
+
+    dd = m18_paths.data_dir()
+    with zipfile.ZipFile(zip_path) as z:
+        names = set(z.namelist())
+        if "config.json" not in names:
+            raise ValueError("el paquete no contiene config.json")
+        cfg = json.loads(z.read("config.json").decode("utf-8"))
+        for d, fld in _collect_asset_fields(cfg):
+            rel = d[fld].replace("\\", "/")
+            if rel in names:   # viene empaquetado -> reubicar en este equipo
+                dest = os.path.join(dd, *rel.split("/"))
+                try:
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    with z.open(rel) as fsrc, open(dest, "wb") as fdst:
+                        shutil.copyfileobj(fsrc, fdst)
+                    d[fld] = dest
+                except Exception as ex:
+                    print("[import-pkg]", rel, ex)
+            # si no esta en el paquete (json antiguo con ruta absoluta): se deja
+    return cfg
 
 
 def run_app():
