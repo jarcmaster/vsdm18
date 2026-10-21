@@ -22,7 +22,38 @@ if _BASE not in sys.path:
 
 
 def main():
-    if "--config" in sys.argv[1:]:
+    args = sys.argv[1:]
+    if "--timer-popup" in args:
+        import timer_popup
+        timer_popup.main(sys.argv)
+    elif "--mouse-overlay" in args:
+        import mouse_overlay
+        mouse_overlay.main()
+    elif "--notes-popup" in args:
+        import notes_popup
+        notes_popup.main(sys.argv)
+    elif "--alarm-popup" in args:
+        import alarm_popup
+        alarm_popup.main(sys.argv)
+    elif "--recorder-popup" in args:
+        import recorder_popup
+        recorder_popup.main(sys.argv)
+    elif "--reminders-popup" in args:
+        import reminders_popup
+        reminders_popup.main(sys.argv)
+    elif "--todos-popup" in args:
+        import todos_popup
+        todos_popup.main(sys.argv)
+    elif "--region-capture" in args:
+        import region_capture
+        region_capture.main(sys.argv)
+    elif "--tray-toast" in args:
+        import tray_toast
+        tray_toast.main(sys.argv)
+    elif "--hid-scan" in args:
+        import hid_scan
+        hid_scan.main(sys.argv)
+    elif "--config" in args:
         import configurator_flet
         configurator_flet.run_app()
     else:

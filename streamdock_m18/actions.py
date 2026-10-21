@@ -52,6 +52,7 @@ _INPUT_KEYBOARD = 1
 _KEYEVENTF_EXTENDEDKEY = 0x0001
 _KEYEVENTF_KEYUP = 0x0002
 _KEYEVENTF_SCANCODE = 0x0008
+_KEYEVENTF_UNICODE = 0x0004
 
 # nombre de tecla (estilo pyautogui) -> (codigo VK de Windows, es_tecla_extendida)
 _VK = {
@@ -89,6 +90,26 @@ def _vk_ext(name):
             return (res & 0xFF, False)
     return None
 
+def _type_unicode(text, char_delay_ms=3):
+    """Teclea texto LITERAL como caracteres Unicode (SendInput), donde este el
+    cursor, sin tocar el portapapeles. `char_delay_ms` = pausa entre letras
+    (efecto maquina de escribir). Funciona con acentos/enies. '\\n' = Enter."""
+    d = max(0, int(char_delay_ms)) / 1000.0
+    for ch in (text or ""):
+        if ch in "\r\n":
+            vk, ext = _VK["enter"]
+            _sc_event(vk, False, ext); _sc_event(vk, True, ext)
+            time.sleep(d)
+            continue
+        for up in (False, True):
+            flags = _KEYEVENTF_UNICODE | (_KEYEVENTF_KEYUP if up else 0)
+            inp = _INPUT(type=_INPUT_KEYBOARD,
+                         u=_INUNION(ki=_KEYBDINPUT(wVk=0, wScan=ord(ch), dwFlags=flags,
+                                                   time=0, dwExtraInfo=0)))
+            _user32.SendInput(1, _ct.byref(inp), _ct.sizeof(_INPUT))
+        time.sleep(d)
+
+
 def _sc_event(vk, keyup, extended):
     scan = _user32.MapVirtualKeyW(vk, 0) & 0xFF
     flags = _KEYEVENTF_SCANCODE
@@ -100,6 +121,36 @@ def _sc_event(vk, keyup, extended):
                  u=_INUNION(ki=_KEYBDINPUT(wVk=0, wScan=scan, dwFlags=flags,
                                            time=0, dwExtraInfo=0)))
     _user32.SendInput(1, _ct.byref(inp), _ct.sizeof(_INPUT))
+
+
+# --- raton por Win32 directo (reproduccion EXACTA de macros) ----------------
+_INPUT_MOUSE = 0
+_MOUSE_FLAGS = {
+    ("l", True): 0x0002, ("l", False): 0x0004,   # LEFTDOWN / LEFTUP
+    ("r", True): 0x0008, ("r", False): 0x0010,   # RIGHTDOWN / RIGHTUP
+    ("m", True): 0x0020, ("m", False): 0x0040,   # MIDDLEDOWN / MIDDLEUP
+}
+
+def _mouse_setpos(x, y) -> bool:
+    """Coloca el cursor en coords FISICAS exactas (DPI-aware, igual que GetCursorPos)."""
+    try:
+        _user32.SetCursorPos(int(x), int(y))
+        return True
+    except Exception:
+        return False
+
+def _mouse_button(btn, down) -> bool:
+    """Pulsa/suelta un boton del raton en la posicion ACTUAL (SendInput)."""
+    try:
+        flags = _MOUSE_FLAGS[(btn, down)]
+        inp = _INPUT(type=_INPUT_MOUSE,
+                     u=_INUNION(mi=_MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=flags,
+                                               time=0, dwExtraInfo=0)))
+        _user32.SendInput(1, _ct.byref(inp), _ct.sizeof(_INPUT))
+        return True
+    except Exception:
+        return False
+
 
 def send_combo_scancode(keys, hold=0.05) -> bool:
     """Pulsa una combinacion por scancode (modificadores primero). True si pudo.
@@ -174,6 +225,131 @@ class DeviceCommand:
 def brightness(value: int) -> DeviceCommand:
     """Fija el brillo de las pantallas (0-100)."""
     return DeviceCommand("brightness", int(value))
+
+
+# --- Timer (categoria Practical) --------------------------------------------
+class TimerCommand:
+    """
+    Marcador de accion Timer. La app (servidor) lo maneja: cuenta regresiva en
+    la propia tecla, al terminar notifica + parpadea; la pulsacion para/descarta.
+    `cfg` lleva: seconds, notify, sound, blink (dos colores RGB).
+    """
+    def __init__(self, cfg: dict):
+        self.cfg = cfg or {}
+
+    def __repr__(self):
+        return f"TimerCommand({self.cfg!r})"
+
+
+class CalendarCommand:
+    """
+    Marcador de accion Calendar Notes. La app (servidor) lo maneja: pinta la
+    fecha de hoy en la tecla y, al pulsar, abre la ventana de notas.
+    """
+    def __init__(self, cfg: dict):
+        self.cfg = cfg or {}
+
+    def __repr__(self):
+        return f"CalendarCommand({self.cfg!r})"
+
+
+class AlarmCommand:
+    """
+    Marcador de accion Alarm. La app (servidor) lo maneja: programa la alarma por
+    hora/dia, al dispararse notifica/suena/parpadea (opcional accion asociada y
+    escalada), y mantiene el aviso hasta reconocerlo. Pulsar la tecla pospone.
+    `cfg`: time, note, repeat, days, interval_min, notify, sound, snooze_min,
+    snooze_max, priority, escalate, exec.
+    """
+    def __init__(self, cfg: dict):
+        self.cfg = cfg or {}
+
+    def __repr__(self):
+        return f"AlarmCommand({self.cfg!r})"
+
+
+class RecorderCommand:
+    """
+    Marcador de accion "Hold and Record". La app lo maneja con press Y release:
+    mantener presionado graba audio del microfono; al soltar guarda. Un clic
+    corto (<~0.4s) abre la ventana con la lista de grabaciones.
+    `cfg`: device, format, quality, samplerate, channels.
+    """
+    def __init__(self, cfg: dict):
+        self.cfg = cfg or {}
+
+    def __repr__(self):
+        return f"RecorderCommand({self.cfg!r})"
+
+
+class RecorderToggleCommand:
+    """
+    Marcador de accion "Long Recorder". A diferencia de Hold and Record, aqui un
+    clic corto ALTERNA la grabacion: el primer clic empieza a grabar (la tecla
+    muestra un boton rojo "REC") y el siguiente clic la detiene y guarda. Una
+    pulsacion larga (long press) abre la ventana con las grabaciones y los
+    ajustes. Pensado para grabaciones largas/continuas.
+    `cfg`: device, format, quality, samplerate, channels.
+    """
+    def __init__(self, cfg: dict):
+        self.cfg = cfg or {}
+
+    def __repr__(self):
+        return f"RecorderToggleCommand({self.cfg!r})"
+
+
+class ReminderCommand:
+    """
+    Marcador de accion Reminder (indicador global). La app muestra en la tecla el
+    PROXIMO aviso + un badge con los pendientes; al pulsar abre la ventana de
+    recordatorios (crear/gestionar). Los recordatorios viven en reminders.json.
+    """
+    def __init__(self, cfg: dict):
+        self.cfg = cfg or {}
+
+    def __repr__(self):
+        return f"ReminderCommand({self.cfg!r})"
+
+
+class TodoCommand:
+    """
+    Marcador de accion To-Do (indicador global). La app muestra en la tecla la
+    PROXIMA tarea + un badge con las pendientes; al pulsar abre la ventana de
+    tareas (crear/gestionar). Las tareas viven en todos.json.
+    """
+    def __init__(self, cfg: dict):
+        self.cfg = cfg or {}
+
+    def __repr__(self):
+        return f"TodoCommand({self.cfg!r})"
+
+
+class SeqRepeatCommand:
+    """
+    Marcador de accion "Sequence Repeat" (grabador de macro raton+teclado). La
+    app lo maneja: PULSACION LARGA empieza a grabar (el tile muestra REC); volver
+    a pulsar detiene y guarda; PULSACION CORTA reproduce la ultima grabacion (el
+    tile muestra PLAY). `cfg`: repeat, speed, record_keys, stop.
+    """
+    def __init__(self, cfg: dict):
+        self.cfg = cfg or {}
+
+    def __repr__(self):
+        return f"SeqRepeatCommand({self.cfg!r})"
+
+
+class CalcCommand:
+    """
+    Marcador de accion Calculadora. La app mantiene el estado (numero en curso,
+    acumulador y operador) y pinta el display en la tecla con role 'enter' (=).
+    `cfg`: {role, value}. roles: digit (value 0-9), dot, add (long=*), sub
+    (long=/), enter (=), back (corto=borrar un digito; largo=limpiar todo).
+    """
+    def __init__(self, cfg: dict):
+        self.cfg = cfg or {}
+
+    def __repr__(self):
+        return f"CalcCommand({self.cfg!r})"
 
 
 # --- acciones normales ------------------------------------------------------
@@ -482,10 +658,14 @@ def show_overlay(text: str, color: str = "#c0392b", mode: str = "banner", subtit
             f.write(f"{mode}|{color}|{subtitle}\n{text}")
         proc = _OVERLAY["proc"]
         if proc is None or proc.poll() is not None:
-            script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "mouse_overlay.py")
             flags = 0x08000000  # CREATE_NO_WINDOW
-            _OVERLAY["proc"] = subprocess.Popen([sys.executable, script, _OVERLAY["flag"]],
-                                                creationflags=flags)
+            if getattr(sys, "frozen", False):
+                # empaquetado: el mismo exe en modo overlay (main.py despacha)
+                args = [sys.executable, "--mouse-overlay", _OVERLAY["flag"]]
+            else:
+                script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "mouse_overlay.py")
+                args = [sys.executable, script, _OVERLAY["flag"]]
+            _OVERLAY["proc"] = subprocess.Popen(args, creationflags=flags)
     except Exception as e:
         print("[overlay]", e)
 
@@ -499,6 +679,74 @@ def close_overlay():
     except Exception:
         pass
     _OVERLAY["proc"] = None
+
+
+def record_macro_loop(should_stop, rec_keys: bool = True, stop_hotkey: str = "ESC",
+                      max_frames: int = 8000):
+    """
+    Graba raton (+ teclado si rec_keys) por POLLING hasta que should_stop()
+    devuelva True o se pulse el hotkey de parada. Devuelve (frames, rec_monitors)
+    con el mismo esquema que usa mouse_macro. Pensado para correr en un hilo.
+    """
+    import ctypes
+    user32 = ctypes.windll.user32
+
+    class POINT(ctypes.Structure):
+        _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+    pt = POINT()
+
+    def down(vk):
+        return bool(user32.GetAsyncKeyState(vk) & 0x8000)
+
+    stop_vks = STOP_HOTKEYS.get(stop_hotkey, [0x1B])
+    key_vks = []
+    if rec_keys:
+        for vk in range(0x08, 0xFF):
+            if vk in (0x01, 0x02, 0x04, 0x05, 0x06):
+                continue
+            if vk in stop_vks:
+                continue
+            if _vk_to_key(vk):
+                key_vks.append(vk)
+    mons_rec = list_monitors()
+    rec_monitors = [{"index": mm["index"], "width": mm["width"], "height": mm["height"]}
+                    for mm in mons_rec]
+    frames = []
+    t0 = time.perf_counter()
+    last_pos = None
+    last_btn = (False, False, False)
+    prev_keys = set()
+    while not should_stop():
+        if stop_vks and all(down(v) for v in stop_vks):
+            break
+        user32.GetCursorPos(ctypes.byref(pt))
+        l, r, m = down(0x01), down(0x02), down(0x04)
+        cur_keys = set(v for v in key_vks if down(v)) if rec_keys else set()
+        moved = (last_pos is None or abs(pt.x - last_pos[0]) >= 2
+                 or abs(pt.y - last_pos[1]) >= 2)
+        btn_chg = (l, r, m) != last_btn
+        kd = sorted(cur_keys - prev_keys)
+        ku = sorted(prev_keys - cur_keys)
+        if moved or btn_chg or kd or ku:
+            ms = int((time.perf_counter() - t0) * 1000)
+            fr = {"t": ms, "x": int(pt.x), "y": int(pt.y), "l": l, "r": r, "m": m}
+            mi = monitor_at(pt.x, pt.y, mons_rec)
+            if mi is not None:
+                fr["mon"] = mi
+                fr["rx"] = int(pt.x) - mons_rec[mi]["x"]
+                fr["ry"] = int(pt.y) - mons_rec[mi]["y"]
+            if kd:
+                fr["kd"] = kd
+            if ku:
+                fr["ku"] = ku
+            frames.append(fr)
+            last_pos = (pt.x, pt.y)
+            last_btn = (l, r, m)
+            prev_keys = cur_keys
+            if len(frames) >= max_frames:
+                break
+        time.sleep(0.012)
+    return frames, rec_monitors
 
 
 def mouse_macro(steps, repeat: int = 1, stop: str = "ESC", overlay: bool = True,
@@ -547,10 +795,11 @@ def mouse_macro(steps, repeat: int = 1, stop: str = "ESC", overlay: bool = True,
         def _release_all():
             for key, name in (("l", "left"), ("r", "right"), ("m", "middle")):
                 if held_btn[key]:
-                    try:
-                        pyautogui.mouseUp(button=name)
-                    except Exception:
-                        pass
+                    if not _mouse_button(key, False):
+                        try:
+                            pyautogui.mouseUp(button=name)
+                        except Exception:
+                            pass
                     held_btn[key] = False
             for k in list(held_keys):
                 try:
@@ -579,13 +828,15 @@ def mouse_macro(steps, repeat: int = 1, stop: str = "ESC", overlay: bool = True,
                         break
                     try:
                         ax, ay = resolve(f)
-                        pyautogui.moveTo(ax, ay, _pause=False)
+                        if not _mouse_setpos(ax, ay):   # exacto (SetCursorPos); respaldo pyautogui
+                            pyautogui.moveTo(ax, ay, _pause=False)
                     except Exception:
                         pass
                     for key, name in (("l", "left"), ("r", "right"), ("m", "middle")):
                         cur = bool(f.get(key))
                         if cur != held_btn[key]:
-                            (pyautogui.mouseDown if cur else pyautogui.mouseUp)(button=name)
+                            if not _mouse_button(key, cur):   # clic exacto en la posicion actual
+                                (pyautogui.mouseDown if cur else pyautogui.mouseUp)(button=name)
                             held_btn[key] = cur
                     for vk in f.get("kd", []) or []:
                         name = _vk_to_key(vk)
@@ -633,32 +884,82 @@ def hotkey_switch(a_keys, b_keys) -> Action:
     return action
 
 
-def super_hotkeys(script: str) -> Action:
+def super_hotkeys(script: str, default_delay: int = 100,
+                  text_mode: str = "type", text_delay: int = 500) -> Action:
     """
-    Secuencia de atajos: una combinacion por linea, con retardo opcional
-    'combo:ms' (ej. 'ctrl+c', 'ctrl+v:500', 'enter'). Requiere pyautogui.
+    Cada linea puede ser:
+      * un COMBO de teclas:  'ctrl+c'  (retardo opcional 'ctrl+v:500')
+      * una PAUSA:           '1000'  o  'wait 1000' / 'delay 1000'
+      * TEXTO literal:       'text hola mundo'  o  'type ...'  (tambien una
+        linea con espacios que no sea combo/pausa) -> se teclea donde este el
+        cursor (con acentos, sin usar el portapapeles).
+    Entre pasos espera `default_delay` ms (retardo GLOBAL). Corre en un hilo.
     """
-    steps = []
-    for line in (script or "").splitlines():
-        line = line.strip()
+    try:
+        default_delay = int(default_delay)
+    except (TypeError, ValueError):
+        default_delay = 100
+    try:
+        text_delay = int(text_delay)
+    except (TypeError, ValueError):
+        text_delay = 500
+    paste_mode = str(text_mode).lower() == "paste"
+    steps = []   # (keys, delay, text)  -- text != None => teclear literal
+    for raw in (script or "").splitlines():
+        line = raw.strip()
         if not line:
             continue
-        combo, delay = line, 100
+        # 1) PAUSA: un numero suelto ('1000') o 'wait/delay/sleep 1000'.
+        low = line.lower().replace("ms", "").strip()
+        pause = None
+        if low.isdigit():
+            pause = int(low)
+        else:
+            for _kw in ("wait", "delay", "sleep", "pause"):
+                if low.startswith(_kw):
+                    rest = low[len(_kw):].strip(" :\t")
+                    if rest.isdigit():
+                        pause = int(rest)
+                    break
+        if pause is not None:
+            steps.append(([], pause, None))
+            continue
+        # 2) TEXTO literal: prefijo 'text '/'type ', o una linea con espacios
+        #    que no es una combinacion (los combos usan '+').
+        if line.lower().startswith(("text ", "type ")):
+            steps.append(([], default_delay, line.split(None, 1)[1]))
+            continue
+        if " " in line and "+" not in line:
+            steps.append(([], default_delay, line))
+            continue
+        # 3) COMBO de teclas (con retardo opcional ':ms').
+        combo, delay = line, default_delay
         if ":" in line:
             combo, d = line.rsplit(":", 1)
             try:
                 delay = int(d)
             except ValueError:
-                delay = 100
+                delay = default_delay
         keys = [k.strip() for k in combo.replace(",", "+").split("+") if k.strip()]
-        steps.append((keys, delay))
+        steps.append((keys, delay, None))
 
     def action(event):
-        for keys, delay in steps:
-            if keys and not send_combo_scancode(keys):
-                import pyautogui
-                pyautogui.hotkey(*keys)
-            time.sleep(max(0, delay) / 1000.0)
+        def run():
+            for keys, delay, text in steps:
+                try:
+                    if text is not None:
+                        if paste_mode:
+                            _type_text(text)          # copiar/pegar (instantaneo)
+                        else:
+                            _type_unicode(text, text_delay)   # maquina de escribir
+                    elif keys and not send_combo_scancode(keys):
+                        import pyautogui
+                        pyautogui.hotkey(*keys)
+                except Exception as e:   # una linea mala NO corta la secuencia
+                    print("[super_hotkeys]", keys or text, e)
+                time.sleep(max(0, delay) / 1000.0)
+        import threading as _th
+        _th.Thread(target=run, daemon=True).start()
     return action
 
 
@@ -816,6 +1117,54 @@ def _set_clipboard(text: str) -> bool:
         return False
 
 
+def _get_clipboard():
+    """Devuelve el texto del portapapeles (CF_UNICODETEXT) o None."""
+    try:
+        import ctypes
+        from ctypes import c_void_p
+        u32 = ctypes.windll.user32
+        k32 = ctypes.windll.kernel32
+        k32.GlobalLock.restype = c_void_p
+        k32.GlobalLock.argtypes = [c_void_p]
+        k32.GlobalUnlock.argtypes = [c_void_p]
+        u32.GetClipboardData.restype = c_void_p
+        u32.GetClipboardData.argtypes = [ctypes.c_uint]
+        if not u32.OpenClipboard(0):
+            return None
+        try:
+            h = u32.GetClipboardData(13)   # CF_UNICODETEXT
+            if not h:
+                return None
+            p = k32.GlobalLock(h)
+            if not p:
+                return None
+            try:
+                return ctypes.c_wchar_p(p).value
+            finally:
+                k32.GlobalUnlock(h)
+        finally:
+            u32.CloseClipboard()
+    except Exception:
+        return None
+
+
+def _type_text(text):
+    """Escribe texto LITERAL donde este el cursor pegandolo (fiable e instantaneo,
+    sin corromper caracteres). Restaura el portapapeles previo. Respaldo: Unicode."""
+    prev = _get_clipboard()
+    try:
+        if _set_clipboard(text):
+            if not send_combo_scancode(["ctrl", "v"]):
+                import pyautogui
+                pyautogui.hotkey("ctrl", "v")
+            time.sleep(0.12)   # que la app lea el portapapeles antes de restaurar
+        else:
+            _type_unicode(text)
+    finally:
+        if prev is not None:
+            _set_clipboard(prev)
+
+
 def password(text: str, enter: bool = False, paste: bool = True) -> Action:
     """
     Escribe una contrasena en el control enfocado. Si `paste`, la copia al
@@ -856,7 +1205,8 @@ ACTION_TYPES = [
     "password", "multimedia", "brightness", "close", "mouse", "devsleep",
     "scene_shift", "goto_scene", "page_indicator", "hotkey_switch", "super_hotkeys",
     "action_flow", "carousel", "action_toggle",
-    "play_audio", "stop_audio",
+    "play_audio", "stop_audio", "timer", "timer_exec", "routine", "calendar", "alarm", "recorder",
+    "recorder_toggle", "reminder", "todo",
     "next_page", "prev_page", "goto_page", "home",
 ]
 
@@ -871,6 +1221,62 @@ def set_obs_config(cfg):
 
 def get_obs_config():
     return _OBS_CFG or {"host": "127.0.0.1", "port": 4455, "password": ""}
+
+
+# rutinas grabadas con nombre (categoria Practical "Rutinas"); la app las fija
+_ROUTINES = {}
+
+
+def set_routines(routines):
+    """Registra las rutinas por nombre. `routines`: lista de dicts {name, steps,...}."""
+    global _ROUTINES
+    _ROUTINES = {r["name"]: r for r in (routines or []) if r.get("name")}
+
+
+def get_routine(name):
+    return _ROUTINES.get(name)
+
+
+def routine_action(name):
+    """Accion que reproduce una rutina grabada por su nombre (o nada si no existe)."""
+    r = _ROUTINES.get(name)
+    if not r:
+        def _missing(event):
+            print(f"[rutina] no encontrada: {name!r}")
+        return _missing
+    return mouse_macro(r.get("steps", []), r.get("repeat", 1), r.get("stop", "ESC"),
+                       speed=r.get("speed", 1), rec_monitors=r.get("rec_monitors"),
+                       overlay_text=r.get("overlay_text", ""))
+
+
+def screen_capture(clipboard: bool = True, save_dir: str = "", ask_name: bool = False):
+    """Accion: captura un area de pantalla con el selector `region_capture.py`
+    (otro proceso) y, segun la config, la copia al portapapeles y/o la guarda en
+    una carpeta (pidiendo el nombre o con uno aleatorio). Fire-and-forget: no
+    bloquea el bucle de eventos del equipo."""
+    import os
+    import sys
+    import subprocess
+
+    def action(_ev=None):
+        try:
+            flags = 0x08000000  # CREATE_NO_WINDOW
+            if getattr(sys, "frozen", False):
+                args = [sys.executable, "--region-capture"]
+            else:
+                script = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                      "region_capture.py")
+                args = [sys.executable, script]
+            if clipboard:
+                args.append("--clipboard")
+            if save_dir:
+                args += ["--save-dir", save_dir]
+                if ask_name:
+                    args.append("--ask-name")
+            subprocess.Popen(args, creationflags=flags)
+        except Exception as e:
+            print("[screen_capture]", e)
+    return action
 
 
 def from_spec(spec: dict | None):
@@ -903,6 +1309,10 @@ def from_spec(spec: dict | None):
         return brightness(int(spec.get("value", 80)))
     if t == "close":
         return close_window(spec.get("app", ""), spec.get("force", False))
+    if t == "screen_capture":
+        return screen_capture(bool(spec.get("clipboard", True)),
+                              spec.get("save_dir", ""),
+                              bool(spec.get("ask_name", False)))
     if t == "mouse":
         if spec.get("event") == "macro" or spec.get("steps"):
             return mouse_macro(spec.get("steps", []), spec.get("repeat", 1),
@@ -916,6 +1326,8 @@ def from_spec(spec: dict | None):
         tg = spec.get("target", "next")
         if tg == "prev":
             return PageNav("scene_prev")
+        if tg == "home":
+            return PageNav("scene_home")   # ir a la escena por defecto
         if isinstance(tg, int) or (isinstance(tg, str) and tg.lstrip("-").isdigit()):
             return goto_scene(int(tg))
         return scene_next()
@@ -926,13 +1338,34 @@ def from_spec(spec: dict | None):
     if t == "hotkey_switch":
         return hotkey_switch(spec.get("a", []), spec.get("b", []))
     if t == "super_hotkeys":
-        return super_hotkeys(spec.get("script", ""))
+        return super_hotkeys(spec.get("script", ""), spec.get("delay", 100),
+                             spec.get("text_mode", "type"), spec.get("text_delay", 500))
     if t == "action_flow":
         return action_flow(spec.get("script", ""))
     if t == "carousel":
         return carousel(spec.get("script", ""))
     if t == "action_toggle":
         return action_toggle(spec.get("a", {}), spec.get("b", {}))
+    if t in ("timer", "timer_exec"):
+        return TimerCommand(spec)
+    if t == "calendar":
+        return CalendarCommand(spec)
+    if t == "alarm":
+        return AlarmCommand(spec)
+    if t == "recorder":
+        return RecorderCommand(spec)
+    if t == "recorder_toggle":
+        return RecorderToggleCommand(spec)
+    if t == "reminder":
+        return ReminderCommand(spec)
+    if t == "todo":
+        return TodoCommand(spec)
+    if t == "calc":
+        return CalcCommand(spec)
+    if t == "seq_repeat":
+        return SeqRepeatCommand(spec)
+    if t == "routine":
+        return routine_action(spec.get("name", ""))
     if t in ("play_audio", "stop_audio"):
         from . import audio as _audio
         return _audio.action_from_spec(spec)

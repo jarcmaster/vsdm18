@@ -145,6 +145,30 @@ class StreamDockM18:
                 self._hid.close()
                 self._hid = None
 
+    def reopen(self) -> bool:
+        """
+        Cierra (best-effort) y vuelve a abrir el dispositivo re-enumerando el
+        USB. Util tras suspender/reanudar el PC: el handle HID queda OBSOLETO
+        (las lecturas devuelven vacio sin lanzar error, asi que el equipo parece
+        'inactivo' y las pulsaciones se pierden). Tras reabrir hay que repintar
+        las teclas (open() las deja en blanco). Devuelve True si reconecto.
+        """
+        try:
+            if self._hid is not None:
+                try:
+                    self._hid.close()   # sin HAN: el handle puede estar muerto
+                except Exception:
+                    pass
+                self._hid = None
+        except Exception:
+            pass
+        try:
+            self.open()
+            return True
+        except Exception as e:
+            print(f"[device] reopen fallo: {e}")
+            return False
+
     def __enter__(self) -> "StreamDockM18":
         self.open()
         return self

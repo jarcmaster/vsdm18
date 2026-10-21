@@ -63,7 +63,9 @@ def _parse(flag):
 
 
 def main():
-    flag = sys.argv[1] if len(sys.argv) > 1 else ""
+    # el flagfile es el ultimo argumento que no sea una bandera (--mouse-overlay)
+    _args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flag = _args[-1] if _args else ""
     root = tk.Tk()
     root.overrideredirect(True)
     root.attributes("-topmost", True)

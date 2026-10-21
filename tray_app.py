@@ -28,6 +28,16 @@ CONFIG = m18_paths.config_path()
 ICON_PATH = os.path.join(m18_paths.assets_dir(), "app.ico")
 
 _stop = threading.Event()
+# Se activa cuando Windows reanuda de suspension; el runtime reconecta el HID.
+_resume = threading.Event()
+
+
+def resume_cb():
+    """True una sola vez tras reanudar (consume la senal). Lo usa app.run()."""
+    if _resume.is_set():
+        _resume.clear()
+        return True
+    return False
 
 
 def _read_cfg():
@@ -68,7 +78,7 @@ def runtime_loop():
             return None
 
         try:
-            app.run(reload_cb=reload_cb)
+            app.run(reload_cb=reload_cb, resume_cb=resume_cb)
         except Exception as e:
             print("[tray] run:", e)
         if _stop.is_set():
@@ -88,6 +98,22 @@ def launch_configurator():
         print("[tray] launch config:", e)
 
 
+def show_tray_toast(target=None):
+    """Aviso rapido (burbuja) al arrancar: la app esta en la bandeja del sistema.
+    `target`: (x, y) en px donde debe apuntar la flecha (el icono del tray)."""
+    try:
+        flags = 0x08000000   # CREATE_NO_WINDOW
+        if getattr(sys, "frozen", False):
+            args = [sys.executable, "--tray-toast"]
+        else:
+            args = [sys.executable, os.path.join(HERE, "tray_toast.py")]
+        if target:
+            args += [str(int(target[0])), str(int(target[1]))]
+        subprocess.Popen(args, close_fds=True, creationflags=flags)
+    except Exception as e:
+        print("[tray] toast:", e)
+
+
 # --- bandeja Win32 (ctypes, sin dependencias) -------------------------------
 WM_APP = 0x8000
 WM_TRAY = WM_APP + 1
@@ -97,6 +123,10 @@ WM_LBUTTONUP = 0x0202
 WM_LBUTTONDBLCLK = 0x0203
 WM_RBUTTONUP = 0x0205
 WM_NULL = 0x0000
+# energia: reanudar de suspension -> reconectar el dispositivo
+WM_POWERBROADCAST = 0x0218
+PBT_APMRESUMESUSPEND = 0x0007
+PBT_APMRESUMEAUTOMATIC = 0x0012
 NIM_ADD, NIM_MODIFY, NIM_DELETE = 0, 1, 2
 NIF_MESSAGE, NIF_ICON, NIF_TIP = 1, 2, 4
 IDI_APPLICATION = 32512
@@ -151,6 +181,40 @@ class NOTIFYICONDATA(ctypes.Structure):
         ("guidItem", ctypes.c_byte * 16),
         ("hBalloonIcon", wintypes.HICON),
     ]
+
+
+class GUID(ctypes.Structure):
+    _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD),
+                ("Data3", wintypes.WORD), ("Data4", ctypes.c_byte * 8)]
+
+
+class NOTIFYICONIDENTIFIER(ctypes.Structure):
+    _fields_ = [("cbSize", wintypes.DWORD), ("hWnd", wintypes.HWND),
+                ("uID", wintypes.UINT), ("guidItem", GUID)]
+
+
+def _tray_icon_center(hwnd, uid=1):
+    """Centro (x, y) en px del icono del tray (o del chevron si esta oculto)."""
+    try:
+        shell32.Shell_NotifyIconGetRect.restype = ctypes.c_long   # HRESULT
+        shell32.Shell_NotifyIconGetRect.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
+    except Exception:
+        return None
+    nii = NOTIFYICONIDENTIFIER()
+    nii.cbSize = ctypes.sizeof(NOTIFYICONIDENTIFIER)
+    nii.hWnd = hwnd
+    nii.uID = uid
+    rect = wintypes.RECT()
+    for _ in range(12):   # el shell puede tardar un instante en colocar el icono
+        try:
+            hr = shell32.Shell_NotifyIconGetRect(ctypes.byref(nii), ctypes.byref(rect))
+        except Exception as e:
+            print("[tray] iconrect:", e)
+            return None
+        if hr == 0 and (rect.right > rect.left) and (rect.bottom > rect.top):
+            return ((rect.left + rect.right) // 2, (rect.top + rect.bottom) // 2)
+        time.sleep(0.04)
+    return None
 
 
 class WNDCLASS(ctypes.Structure):
@@ -216,9 +280,9 @@ def run_tray():
     def wndproc(hwnd, msg, wparam, lparam):
         if msg == WM_TRAY:
             low = lparam & 0xFFFF
-            if low in (WM_RBUTTONUP, WM_LBUTTONUP):
+            if low == WM_RBUTTONUP:              # clic derecho -> menu Abrir/Salir
                 _show_menu(hwnd)
-            elif low == WM_LBUTTONDBLCLK:
+            elif low in (WM_LBUTTONUP, WM_LBUTTONDBLCLK):   # clic izquierdo -> abrir app
                 launch_configurator()
             return 0
         if msg == WM_COMMAND:
@@ -230,6 +294,11 @@ def run_tray():
                 shell32.Shell_NotifyIconW(NIM_DELETE, ctypes.byref(nid))
                 u32.DestroyWindow(hwnd)
             return 0
+        if msg == WM_POWERBROADCAST:
+            # el PC reanudo de suspension -> senalar reconexion del HID
+            if wparam in (PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND):
+                _resume.set()
+            return 1   # TRUE: mensaje atendido
         if msg == WM_DESTROY:
             u32.PostQuitMessage(0)
             return 0
@@ -264,6 +333,9 @@ def run_tray():
     nid.hIcon = _load_icon()
     nid.szTip = "Stream Dock M18 by JARCMASTER"
     shell32.Shell_NotifyIconW(NIM_ADD, ctypes.byref(nid))
+
+    # aviso rapido: la app quedo en la bandeja (la flecha apunta al icono real)
+    show_tray_toast(_tray_icon_center(hwnd, 1))
 
     threading.Thread(target=runtime_loop, daemon=True).start()
 

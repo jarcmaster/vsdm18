@@ -74,6 +74,7 @@ ACTION_LIBRARY = [
         ("HotkeySwitch", I.KEYBOARD_ALT, "hotkey_switch"),
         ("Super Hotkeys", I.KEYBOARD_DOUBLE_ARROW_RIGHT, "super_hotkeys"),
         ("Mouse event", I.MOUSE, "mouse"),
+        ("Sequence Repeat", I.REPEAT, "seq_repeat"),
         ("Open", I.OPEN_IN_NEW, "open"),
         ("Open an app", I.LAUNCH, "open_app"),
         ("Close", I.CLOSE, "close"),
@@ -84,6 +85,19 @@ ACTION_LIBRARY = [
     ("Audio Player", I.VOLUME_UP, [
         ("Play Audio", I.PLAY_ARROW, "play_audio"),
         ("Stop Audio", I.STOP, "stop_audio"),
+    ]),
+    ("Practical", I.WIDGETS, [
+        ("Timer", I.TIMER, "timer"),
+        ("On Timer Execute", I.ALARM_ON, "timer_exec"),
+        ("Routines", I.FIBER_SMART_RECORD, "routine"),
+        ("Calendar Notes", I.EVENT_NOTE, "calendar"),
+        ("Alarm", I.ALARM, "alarm"),
+        ("Hold and Record", I.MIC, "recorder"),
+        ("Long Recorder", I.RADIO_BUTTON_CHECKED, "recorder_toggle"),
+        ("Reminder", I.NOTIFICATION_IMPORTANT, "reminder"),
+        ("To Do", I.CHECKLIST, "todo"),
+        ("Screen Capture", I.SCREENSHOT_MONITOR, "screen_capture"),
+        ("Calculator", I.CALCULATE, "calc"),
     ]),
     ("Operation Flow", I.ACCOUNT_TREE, [
         ("Action flow", I.ACCOUNT_TREE, "action_flow"),
@@ -109,7 +123,8 @@ ACTION_TYPES = ["none", "run", "open", "open_app", "open_url", "hotkey",
                 "write_text", "password", "multimedia", "brightness",
                 "close", "mouse", "devsleep", "scene_shift", "page_indicator",
                 "hotkey_switch", "super_hotkeys", "action_flow", "carousel", "action_toggle",
-                "play_audio", "stop_audio",
+                "play_audio", "stop_audio", "timer", "timer_exec", "routine", "calendar", "alarm", "recorder",
+                "recorder_toggle", "reminder", "todo", "screen_capture", "calc", "seq_repeat",
                 "next_page", "prev_page", "goto_page", "home"]
 
 SUB_TYPES = ["hotkey", "run", "open", "open_url", "write_text", "multimedia", "mouse", "close"]
@@ -442,13 +457,19 @@ AID_TR = {
     "password": "a_password", "multimedia": "a_multimedia", "action_flow": "a_action_flow",
     "carousel": "a_carousel", "action_toggle": "a_action_toggle",
     "play_audio": "a_play_audio", "stop_audio": "a_stop_audio",
+    "timer": "a_timer", "timer_exec": "a_timer_exec", "routine": "a_routines",
+    "calendar": "a_calendar", "alarm": "a_alarm",
+    "recorder": "a_recorder", "recorder_toggle": "a_recorder_toggle",
+    "reminder": "a_reminder", "todo": "a_todo", "screen_capture": "a_screen_capture", "calc": "a_calc",
+    "seq_repeat": "a_seq_repeat",
     "obs_record": "a_obs_record", "obs_stream": "a_obs_stream", "obs_vcam": "a_obs_vcam",
     "obs_scene": "a_obs_scene", "obs_source": "a_obs_source", "obs_audio": "a_obs_audio",
     "obs_studio_mode": "a_obs_studio", "obs_screenshot": "a_obs_screenshot",
     "obs_transition": "a_obs_transition", "obs_green_up": "a_obs_green_up", "obs_green_dn": "a_obs_green_dn",
 }
 # categorías: etiqueta por defecto -> clave (las que son nombre de producto se dejan igual)
-CAT_TR = {"Toolbox": "cat_toolbox", "Audio Player": "cat_audio", "Operation Flow": "cat_opflow"}
+CAT_TR = {"Toolbox": "cat_toolbox", "Audio Player": "cat_audio", "Operation Flow": "cat_opflow",
+          "Practical": "cat_practical"}
 
 
 def t(key):
@@ -469,7 +490,7 @@ def tcat(cat):
 def thdr(prefix, name_key):
     """Encabezado de dialogo: 'Prefijo: Nombre'. prefix puede ser una clave de
     categoria (cat_*) o un texto literal de producto (ej. 'Stream Dock')."""
-    pfx = t(prefix) if prefix in ("cat_toolbox", "cat_audio", "cat_opflow") else prefix
+    pfx = t(prefix) if prefix in ("cat_toolbox", "cat_audio", "cat_opflow", "cat_practical") else prefix
     return f"{pfx}: {t(name_key)}"
 
 ALL_AIDS = {aid for _c, _i, items in ACTION_LIBRARY for _n, _ic, aid in items}
@@ -506,6 +527,40 @@ def hexc(rgb):
 _ver = 0
 
 
+def _lp_kind_from_spec(spec):
+    """Clasifica una tecla por su long-press: 'req' (necesario para su funcion),
+    'extra' (funcion secundaria) o None. Misma tabla que el runtime."""
+    act = (spec or {}).get("action") or {}
+    ty = act.get("type")
+    if ty in ("recorder", "seq_repeat"):
+        return "req"
+    if ty == "recorder_toggle":
+        return "extra"
+    if ty == "calc" and act.get("role") in ("add", "sub", "back"):
+        return "extra"
+    return None
+
+
+def _draw_lp_marker_png(img, kind):
+    """Dibuja el distintivo de long-press (estatico) en la esquina inf-izq (img 64x64)."""
+    try:
+        from PIL import ImageDraw
+        sz = sd_device.KEY_IMAGE_SIZE
+        d = ImageDraw.Draw(img)
+        col = (240, 170, 40) if kind == "req" else (80, 200, 230)
+        if kind == "req":
+            cx, cy, r = 11, sz - 11, 7
+            d.arc([cx - r, cy - r, cx + r, cy + r], start=100, end=65, fill=col, width=2)
+            d.polygon([(cx + r - 2, cy - r), (cx + r + 3, cy - r - 1),
+                       (cx + r, cy - r + 4)], fill=col)
+        else:
+            cy = sz - 10
+            for cx in (8, 16):
+                d.ellipse([cx - 2, cy - 2, cx + 2, cy + 2], fill=col)
+    except Exception:
+        pass
+
+
 def render_key_src(spec):
     """Compone la tecla (imagen+texto) a PNG en assets y devuelve su src."""
     global _ver
@@ -517,6 +572,9 @@ def render_key_src(spec):
         fg=tuple((spec or {}).get("fg", [255, 255, 255])),
         bg=tuple((spec or {}).get("bg", [0, 0, 0])),
         font=(spec or {}).get("font"))
+    _lpk = _lp_kind_from_spec(spec)
+    if _lpk:
+        _draw_lp_marker_png(img, _lpk)
     img = img.resize((128, 128))
     _ver += 1
     name = f"k_{_ver}.png"
@@ -563,9 +621,14 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 0
     try:
-        # Tamano por defecto ajustado para que la imagen central del equipo y los
-        # tres paneles se vean completos sin espacio sobrante. El usuario puede
-        # maximizar o redimensionar luego (se respetan los minimos).
+        # Tamano fijo al abrir: el equipo VSD y los tres paneles completos.
+        # Forzamos que NO abra maximizada / pantalla completa para que siempre
+        # salga a este tamano. El usuario puede redimensionar luego.
+        for _attr in ("maximized", "full_screen", "minimized"):
+            try:
+                setattr(page.window, _attr, False)
+            except Exception:
+                pass
         page.window.width = 1371
         page.window.height = 868
         page.window.min_width = 1100   # 250 (escenas) + ~560 (equipo) + 270 (libreria)
@@ -633,21 +696,87 @@ def main(page: ft.Page):
         page.show_dialog(ft.AlertDialog(title=ft.Text(t("ui_info")), content=ft.Text(msg),
             actions=[ft.TextButton(t("ok"), on_click=lambda e: page.pop_dialog())]))
 
-    def hk_capture(tf):
-        def onkey(e):
-            k = getattr(e, "key", None)
-            if not k or k.lower() in ("control", "alt", "shift", "meta"):
-                return
-            mods = []
-            if getattr(e, "ctrl", False):
-                mods.append("ctrl")
-            if getattr(e, "alt", False):
-                mods.append("alt")
-            if getattr(e, "shift", False):
-                mods.append("shift")
-            tf.value = "+".join(mods + [_normkey(k)]); tf.update()
-            page.on_keyboard_event = None
-        page.on_keyboard_event = onkey
+    def hk_capture(tf, btn=None, append=False):
+        # append=True: agrega el combo como una linea nueva (Super Hotkeys);
+        # si no, reemplaza el valor del campo (editor de hotkey simple).
+        # Captura por GetAsyncKeyState (como el grabador): detecta modificadores
+        # ctrl/alt/shift/WIN + la primera tecla no-modificadora. Asi funciona con
+        # combinaciones de sistema como Win+R que el evento de flet no recibe.
+        # OJO: capturar Win+R tambien disparara la accion del sistema (abrir Ejecutar).
+        orig_content = getattr(btn, "content", None) if btn is not None else None
+
+        def restore():
+            if btn is not None:
+                btn.disabled = False
+                btn.content = orig_content
+                try:
+                    btn.update()
+                except Exception:
+                    pass
+
+        def worker():
+            import ctypes
+            import time as _t
+            u = ctypes.windll.user32
+
+            def down(vk):
+                return bool(u.GetAsyncKeyState(vk) & 0x8000)
+            # vk a saltar como "tecla principal": modificadores, botones de raton, Win/apps
+            SKIP = {0x11, 0x12, 0x10, 0x5B, 0x5C, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5,
+                    0x01, 0x02, 0x04, 0x05, 0x06, 0x5D}
+            _t.sleep(0.18)   # dejar que se suelte el Enter/clic que lanzo la captura
+            combo = None
+            t0 = _t.monotonic()
+            while _t.monotonic() - t0 < 20:
+                if down(0x1B):   # ESC cancela
+                    break
+                main = None
+                for vk in range(0x08, 0xFF):
+                    if vk in SKIP:
+                        continue
+                    if down(vk):
+                        name = sd_actions._vk_to_key(vk)
+                        if name:
+                            main = name
+                            break
+                if main:
+                    mods = []
+                    if down(0x11):
+                        mods.append("ctrl")
+                    if down(0x12):
+                        mods.append("alt")
+                    if down(0x10):
+                        mods.append("shift")
+                    if down(0x5B) or down(0x5C):
+                        mods.append("win")
+                    combo = "+".join(mods + [main])
+                    break
+                _t.sleep(0.02)
+            if combo:
+                if append:
+                    base = tf.value or ""
+                    if base and not base.endswith("\n"):
+                        base += "\n"
+                    tf.value = base + combo
+                else:
+                    tf.value = combo
+                try:
+                    tf.update()
+                except Exception:
+                    pass
+            restore()
+
+        if btn is not None:
+            btn.disabled = True
+            btn.content = t("ui_capturing")
+            try:
+                btn.update()
+            except Exception:
+                pass
+        # IMPORTANTE: usar page.run_thread (no un threading.Thread crudo). En Flet
+        # 1.x un hilo sin el contexto de sesion NO puede refrescar controles, asi
+        # que tf.update()/restore() no surtian efecto y la tecla no se asignaba.
+        page.run_thread(worker)
 
     def _keys_of(v):
         return [k.strip() for k in (v or "").replace(",", "+").split("+") if k.strip()]
@@ -743,9 +872,9 @@ def main(page: ft.Page):
         if not os.path.isdir(ICONS_DIR):
             info(t("gal_no_icons")); return
         cats = [d for d in sorted(os.listdir(ICONS_DIR)) if os.path.isdir(os.path.join(ICONS_DIR, d))]
-        # recordar la ultima categoria/subcarpeta usada en la sesion (no siempre "general")
-        last_cat = state.get("gal_cat")
-        default_cat = last_cat if last_cat in cats else (cats[0] if cats else None)
+        # por defecto abrir en la categoria "general" (si existe)
+        gen = next((c for c in cats if c.lower() == "general"), None)
+        default_cat = gen or (cats[0] if cats else None)
         cat_dd = ft.Dropdown(label=t("ui_category"), value=default_cat,
                              options=[ft.DropdownOption(key=c, text=c) for c in cats],
                              width=180, on_select=lambda e: on_cat())
@@ -760,19 +889,16 @@ def main(page: ft.Page):
             return base if (not sub_dd.value or sub_dd.value == t("gal_root")) else os.path.join(base, sub_dd.value)
 
         def on_cat():
-            state["gal_cat"] = cat_dd.value   # recordar categoria elegida
             base = os.path.join(ICONS_DIR, cat_dd.value)
             subs = [d for d in sorted(os.listdir(base)) if os.path.isdir(os.path.join(base, d))]
             has = any(f.lower().endswith(IMG_EXT) for f in os.listdir(base))
             vals = ([t("gal_root")] if has else []) + subs
             sub_dd.options = [ft.DropdownOption(key=v, text=v) for v in vals]
-            remembered = state.get("gal_sub")
-            sub_dd.value = remembered if remembered in vals else (vals[0] if vals else None)
+            sub_dd.value = vals[0] if vals else None
             sub_dd.update()
             load()
 
         def load():
-            state["gal_sub"] = sub_dd.value   # recordar subcarpeta elegida
             grid.controls.clear()
             fo = folder()
             if fo and os.path.isdir(fo):
@@ -818,9 +944,16 @@ def main(page: ft.Page):
             preview.update()
 
         extras, build_action = extra_fn(do_refresh, cur)
+
+        def do_capture(e):
+            p = capture_region_to_file()
+            if p:
+                st.update(img=p); do_refresh()
+
         icon_row = ft.Row([ft.Text(t("icon") + ":"),
                            ft.FilledButton(t("gallery"), icon=I.IMAGE,
                                            on_click=lambda e: show_gallery(lambda p: (st.update(img=p), do_refresh()))),
+                           ft.FilledButton(t("ui_capture_region"), icon=I.CROP, on_click=do_capture),
                            ft.TextButton(t("remove"), on_click=lambda e: (st.update(img=""), do_refresh()))])
 
         def save(e):
@@ -833,6 +966,8 @@ def main(page: ft.Page):
                 s["image"] = st["img"]
             if t.strip():
                 s["text"] = t
+            if cur.get("action_double"):     # conservar el doble-tap existente
+                s["action_double"] = cur["action_double"]
             keys[str(pos)] = s
             page.pop_dialog(); refresh_device()
 
@@ -1025,6 +1160,395 @@ def main(page: ft.Page):
             return ([], build)
         key_shell(pos, thdr("cat_audio", "a_stop_audio"), [30, 30, 50], ex)
 
+    def _timer_fields(act):
+        """Campos comunes de duracion/notify/sound (Timer y On Timer Execute).
+        Devuelve (lista_controles, build) donde build() -> {seconds, notify, sound}."""
+        PRESETS = [("tm_1min", 60), ("tm_5min", 300), ("tm_10min", 600),
+                   ("tm_15min", 900), ("tm_30min", 1800), ("tm_1hr", 3600),
+                   ("tm_custom", "custom")]
+        cur_secs = max(1, int(act.get("seconds", 300)))
+        preset_vals = [v for _k, v in PRESETS if v != "custom"]
+        init = str(cur_secs) if cur_secs in preset_vals else "custom"
+        dur_dd = ft.Dropdown(label=t("tm_duration"), width=300, value=init,
+                             options=[ft.DropdownOption(key=str(v), text=t(k)) for k, v in PRESETS])
+        # descomponer en cantidad + unidad (default minutos)
+        if cur_secs % 3600 == 0:
+            amt, unit = cur_secs // 3600, "h"
+        elif cur_secs % 60 == 0:
+            amt, unit = cur_secs // 60, "m"
+        else:
+            amt, unit = cur_secs, "s"
+        amount_tf = ft.TextField(label=t("tm_amount"), width=120, value=str(amt))
+        unit_dd = ft.Dropdown(label=t("tm_unit"), width=160, value=unit,
+                              options=[ft.DropdownOption(key="h", text=t("tm_hours")),
+                                       ft.DropdownOption(key="m", text=t("tm_minutes")),
+                                       ft.DropdownOption(key="s", text=t("tm_seconds"))])
+        custom_row = ft.Row([amount_tf, unit_dd], visible=(init == "custom"))
+
+        def upd():
+            custom_row.visible = (dur_dd.value == "custom"); custom_row.update()
+        dur_dd.on_select = lambda e: upd()
+        notify = ft.Checkbox(label=t("tm_notify"), value=act.get("notify", True))
+        sound = ft.Checkbox(label=t("tm_sound"), value=act.get("sound", True))
+
+        def build():
+            v = dur_dd.value
+            if v == "custom":
+                try:
+                    a = max(0, int(amount_tf.value or 0))
+                except (TypeError, ValueError):
+                    a = 5
+                mult = {"h": 3600, "m": 60, "s": 1}.get(unit_dd.value, 60)
+                secs = max(1, a * mult)
+            else:
+                secs = int(v)
+            return {"seconds": secs, "notify": notify.value, "sound": sound.value}
+        return ([dur_dd, custom_row, notify, sound], build)
+
+    def _exec_fields(exec_cfg, include_none=True):
+        """Selector de accion asociada: app / tecla / rutina (y opcional 'none').
+        Devuelve (controles, build) donde build() -> dict exec."""
+        KINDS = ([("te_none", "none")] if include_none else []) + \
+                [("te_app", "app"), ("te_key", "key"), ("te_routine", "routine")]
+        cur_kind = exec_cfg.get("kind") or ("none" if include_none else "app")
+        if cur_kind not in [v for _k, v in KINDS]:
+            cur_kind = KINDS[0][1]
+        kind_dd = ft.Dropdown(label=t("te_on_finish"), width=300, value=cur_kind,
+                              options=[ft.DropdownOption(key=v, text=t(k)) for k, v in KINDS])
+        app_tf = ft.TextField(label=t("fld_app_file"), width=300,
+                              value=exec_cfg.get("path", "") if cur_kind == "app" else "")
+
+        async def pick_app(e):
+            files = await file_picker.pick_files(allow_multiple=False)
+            if files:
+                app_tf.value = files[0].path; app_tf.update()
+        app_row = ft.Row([app_tf, ft.IconButton(I.INSERT_DRIVE_FILE, tooltip=t("ui_choose_file"),
+                                                 on_click=pick_app)])
+        key_tf = ft.TextField(label=t("fld_param"), width=220,
+                              value="+".join(exec_cfg.get("keys", [])) if cur_kind == "key" else "")
+        cap = ft.FilledButton(t("ui_capture"), icon=I.KEYBOARD)
+        cap.on_click = lambda e: hk_capture(key_tf, cap)
+        key_row = ft.Row([key_tf, cap])
+        rnames = [r.get("name", "") for r in _routines_list() if r.get("name")]
+        rtn_dd = ft.Dropdown(label=t("a_routines"), width=300,
+                             value=exec_cfg.get("name") if cur_kind == "routine" else None,
+                             options=[ft.DropdownOption(key=n, text=n) for n in rnames])
+        rtn_hint = ft.Text(t("te_routine_hint"), size=11, color="#888")
+
+        def upd():
+            k = kind_dd.value
+            app_row.visible = (k == "app"); key_row.visible = (k == "key")
+            rtn_dd.visible = (k == "routine"); rtn_hint.visible = (k == "routine")
+            for c in (app_row, key_row, rtn_dd, rtn_hint):
+                c.update()
+        kind_dd.on_select = lambda e: upd()
+        app_row.visible = (cur_kind == "app"); key_row.visible = (cur_kind == "key")
+        rtn_dd.visible = (cur_kind == "routine"); rtn_hint.visible = (cur_kind == "routine")
+
+        def build():
+            k = kind_dd.value
+            if k == "app":
+                return {"kind": "app", "path": (app_tf.value or "").strip()}
+            if k == "key":
+                return {"kind": "key", "keys": _keys_of(key_tf.value)}
+            if k == "routine":
+                return {"kind": "routine", "name": rtn_dd.value or ""}
+            return {"kind": "none"}
+        return ([kind_dd, app_row, key_row, rtn_dd, rtn_hint], build)
+
+    def _time_picker(hhmm):
+        """Selector de hora: Hora (1-12) / Minutos (00-59) / AM-PM.
+        Devuelve (control, get) con get() -> 'HH:MM' en 24h."""
+        hh, mm = 7, 0
+        try:
+            p = str(hhmm or "07:00").replace(".", ":").split(":")
+            hh = max(0, min(23, int(p[0])))
+            mm = max(0, min(59, int(p[1]))) if len(p) > 1 and p[1] != "" else 0
+        except Exception:
+            hh, mm = 7, 0
+        ampm = "PM" if hh >= 12 else "AM"
+        h12 = hh % 12 or 12
+        hour_dd = ft.Dropdown(label=t("al_hour"), width=90, value=str(h12),
+                              options=[ft.DropdownOption(key=str(h), text=str(h)) for h in range(1, 13)])
+        min_dd = ft.Dropdown(label=t("al_min"), width=95, value=f"{mm:02d}", enable_search=True,
+                             options=[ft.DropdownOption(key=f"{m:02d}", text=f"{m:02d}") for m in range(60)])
+        ampm_dd = ft.Dropdown(label=t("al_ampm"), width=90, value=ampm,
+                              options=[ft.DropdownOption(key="AM", text="AM"),
+                                       ft.DropdownOption(key="PM", text="PM")])
+
+        def get():
+            try:
+                h = int(hour_dd.value); m = int(min_dd.value)
+            except (TypeError, ValueError):
+                h, m = 7, 0
+            if ampm_dd.value == "PM" and h != 12:
+                h += 12
+            if ampm_dd.value == "AM" and h == 12:
+                h = 0
+            return f"{h:02d}:{m:02d}"
+        return (ft.Row([hour_dd, min_dd, ampm_dd], spacing=8), get)
+
+    def open_timer(pos):
+        def ex(refresh, cur):
+            act = cur.get("action", {}) if cur.get("action", {}).get("type") == "timer" else {}
+            extras, tbuild = _timer_fields(act)
+            extras = extras + [ft.Text(t("tm_note"), size=11, color="#9fb4d6")]
+
+            def build():
+                return {"type": "timer", **tbuild()}
+            return (extras, build)
+        key_shell(pos, thdr("cat_practical", "a_timer"), [20, 45, 80], ex)
+
+    def open_calendar(pos):
+        # Minimo: la tecla muestra la fecha de hoy en vivo; al pulsar abre las notas.
+        def ex(refresh, cur):
+            def build():
+                return {"type": "calendar"}
+            return ([ft.Text(t("cal_note"), size=12, color="#9fb4d6")], build)
+        key_shell(pos, thdr("cat_practical", "a_calendar"), [30, 40, 60], ex)
+
+    def open_reminder(pos):
+        # Indicador global: la tecla muestra el proximo aviso + pendientes; al
+        # pulsar abre la ventana de recordatorios (crear/gestionar).
+        def ex(refresh, cur):
+            def build():
+                return {"type": "reminder"}
+            return ([ft.Text(t("rem_note"), size=12, color="#9fb4d6")], build)
+        key_shell(pos, thdr("cat_practical", "a_reminder"), [28, 32, 44], ex)
+
+    def open_todo(pos):
+        # Indicador global: la tecla muestra la proxima tarea + pendientes; al
+        # pulsar abre la ventana de tareas (crear/gestionar).
+        def ex(refresh, cur):
+            def build():
+                return {"type": "todo"}
+            return ([ft.Text(t("td_note"), size=12, color="#9fb4d6")], build)
+        key_shell(pos, thdr("cat_practical", "a_todo"), [24, 34, 28], ex)
+
+    def open_screen_capture(pos):
+        # Al pulsar la tecla: captura un area de pantalla (mismo selector que el
+        # icono) y la copia al portapapeles y/o la guarda en una carpeta.
+        def ex(refresh, cur):
+            act = cur.get("action", {}) if cur.get("action", {}).get("type") == "screen_capture" else {}
+            clip = ft.Checkbox(label=t("sc_clipboard"), value=act.get("clipboard", True))
+            ask = ft.Checkbox(label=t("sc_ask_name"), value=act.get("ask_name", False))
+            save_dir = ft.TextField(label=t("sc_save_dir"), value=act.get("save_dir", ""), width=300)
+
+            async def pick_dir(e):
+                d = await file_picker.get_directory_path()
+                if d:
+                    save_dir.value = d; save_dir.update()
+
+            dir_row = ft.Row([save_dir,
+                              ft.IconButton(I.FOLDER_OPEN, tooltip=t("ui_choose_folder"), on_click=pick_dir),
+                              ft.IconButton(I.CLOSE, tooltip=t("remove"),
+                                            on_click=lambda e: (setattr(save_dir, "value", ""), save_dir.update()))])
+
+            def build():
+                return {"type": "screen_capture", "clipboard": clip.value,
+                        "save_dir": (save_dir.value or "").strip(), "ask_name": ask.value}
+            return ([clip, dir_row, ask,
+                     ft.Text(t("sc_note"), size=12, color="#9fb4d6")], build)
+        key_shell(pos, thdr("cat_practical", "a_screen_capture"), [30, 40, 55], ex)
+
+    def open_calc(pos):
+        # Calculadora: cada tecla cumple un rol. La tecla '=' (enter) muestra el
+        # display. +,- se mantienen presionadas para ×,÷; back largo = limpiar.
+        ROLES = [("digit", t("calc_r_digit")), ("dot", t("calc_r_dot")),
+                 ("add", t("calc_r_add")), ("sub", t("calc_r_sub")),
+                 ("enter", t("calc_r_enter")), ("back", t("calc_r_back"))]
+
+        def ex(refresh, cur):
+            act = cur.get("action", {}) if cur.get("action", {}).get("type") == "calc" else {}
+            role_dd = ft.Dropdown(label=t("calc_role"), width=320,
+                                  value=act.get("role", "digit"),
+                                  options=[ft.DropdownOption(key=k, text=v) for k, v in ROLES])
+            val_dd = ft.Dropdown(label=t("calc_value"), width=160,
+                                 value=str(act.get("value", "0")),
+                                 options=[ft.DropdownOption(key=str(d), text=str(d)) for d in range(10)])
+
+            def upd(*_):
+                val_dd.visible = (role_dd.value == "digit")
+                val_dd.update()
+            role_dd.on_select = lambda e: upd()
+
+            def build():
+                spec = {"type": "calc", "role": role_dd.value or "digit"}
+                if role_dd.value == "digit":
+                    spec["value"] = str(val_dd.value or "0")
+                return spec
+            val_dd.visible = (role_dd.value == "digit")
+            return ([role_dd, val_dd, ft.Text(t("calc_note"), size=12, color="#9fb4d6")], build)
+        key_shell(pos, thdr("cat_practical", "a_calc"), [40, 30, 55], ex)
+
+    def open_seq_repeat(pos):
+        # Grabador de macro raton+teclado: long press graba, re-pulsar detiene,
+        # tap reproduce. La grabacion se guarda en %APPDATA%\...\sequences.
+        def ex(refresh, cur):
+            act = cur.get("action", {}) if cur.get("action", {}).get("type") == "seq_repeat" else {}
+            rec_keys = ft.Checkbox(label=t("seq_rec_keys"), value=act.get("record_keys", True))
+            repeat = ft.TextField(label=t("seq_repeat_n"), width=110, value=str(act.get("repeat", 1)))
+            speed = ft.Dropdown(label=t("seq_speed"), width=120, value=str(act.get("speed", 1)),
+                                options=[ft.DropdownOption(key=str(s), text=f"{s}x") for s in (1, 2, 3, 4, 5)])
+            STOPS = [("ESC", "Esc"), ("F8", "F8"), ("F9", "F9"), ("F10", "F10"), ("F12", "F12")]
+            stop = ft.Dropdown(label=t("seq_stop"), width=120, value=act.get("stop", "ESC"),
+                               options=[ft.DropdownOption(key=k, text=v) for k, v in STOPS])
+
+            def build():
+                rv = (repeat.value or "").strip()
+                return {"type": "seq_repeat", "record_keys": rec_keys.value,
+                        "repeat": int(rv) if rv.isdigit() and int(rv) > 0 else 1,
+                        "speed": int(speed.value or 1), "stop": stop.value or "ESC"}
+            return ([ft.Text(t("seq_note"), size=12, color="#9fb4d6"),
+                     rec_keys, ft.Row([repeat, speed, stop])], build)
+        key_shell(pos, thdr("cat_toolbox", "a_seq_repeat"), [25, 45, 35], ex)
+
+    def open_recorder(pos, kind="recorder"):
+        try:
+            from streamdock_m18 import recorder as _rec
+            mics = _rec.list_inputs()
+        except Exception:
+            mics = []
+        note_key = "rec_note_toggle" if kind == "recorder_toggle" else "rec_note"
+        hdr_key = "a_recorder_toggle" if kind == "recorder_toggle" else "a_recorder"
+
+        def ex(refresh, cur):
+            act = cur.get("action", {}) if cur.get("action", {}).get("type") == kind else {}
+            mic_opts = [ft.DropdownOption(key="", text=t("rec_default_mic"))]
+            mic_opts += [ft.DropdownOption(key=n, text=n) for n in mics]
+            curmic = act.get("device", "")
+            if curmic and curmic not in mics:
+                mic_opts.append(ft.DropdownOption(key=curmic, text=curmic))
+            mic_dd = ft.Dropdown(label=t("rec_mic"), width=360, value=curmic,
+                                 enable_search=True, options=mic_opts)
+            fmt_dd = ft.Dropdown(label=t("rec_format"), width=130, value=act.get("format", "mp3"),
+                                 options=[ft.DropdownOption(key=v, text=v.upper()) for v in ("mp3", "wav", "flac")])
+            q_dd = ft.Dropdown(label=t("rec_quality"), width=160, value=act.get("quality", "medium"),
+                               options=[ft.DropdownOption(key="high", text=t("rec_q_high")),
+                                        ft.DropdownOption(key="medium", text=t("rec_q_med")),
+                                        ft.DropdownOption(key="low", text=t("rec_q_low"))])
+            extras = [mic_dd, ft.Row([fmt_dd, q_dd]),
+                      ft.Text(t(note_key), size=11, color="#9fb4d6")]
+            if not (mics):
+                extras.append(ft.Text(t("rec_need_libs"), size=11, color="#d077aa"))
+
+            def build():
+                # microfono -> siempre mono (el estereo en micros mono da ruido)
+                return {"type": kind, "device": mic_dd.value or "",
+                        "format": fmt_dd.value or "mp3", "quality": q_dd.value or "medium",
+                        "channels": 1, "samplerate": 44100}
+            return (extras, build)
+        key_shell(pos, thdr("cat_practical", hdr_key), [45, 22, 22], ex)
+
+    def _routines_list():
+        return state["cfg"].setdefault("routines", [])
+
+    def _routine_upsert(name, data):
+        routines = _routines_list()
+        entry = {"name": name, **data}
+        for i, r in enumerate(routines):
+            if r.get("name") == name:
+                routines[i] = entry
+                return
+        routines.append(entry)
+
+    def open_routines(pos):
+        def ex(refresh, cur):
+            cur_act = cur.get("action", {}) or {}
+            cur_name = cur_act.get("name", "") if cur_act.get("type") == "routine" else ""
+            routines = _routines_list()
+            rdata = next((r for r in routines if r.get("name") == cur_name), {})
+            name_tf = ft.TextField(label=t("rt_name"), value=cur_name, width=300)
+            controls, rec, get_data = _routine_recorder(rdata)
+            note = ft.Text(t("rt_note"), size=11, color="#9fb4d6")
+
+            def build():
+                data = get_data()
+                if not data["steps"]:
+                    return None   # nada grabado -> sin accion
+                name = (name_tf.value or "").strip()
+                if not name:
+                    name = f"Routine {len(_routines_list()) + 1}"
+                _routine_upsert(name, data)
+                return {"type": "routine", "name": name}
+            return ([name_tf] + controls + [note], build)
+        key_shell(pos, thdr("cat_practical", "a_routines"), [45, 35, 25], ex)
+
+    def open_timer_exec(pos):
+        def ex(refresh, cur):
+            act = cur.get("action", {}) if cur.get("action", {}).get("type") == "timer_exec" else {}
+            extras, tbuild = _timer_fields(act)
+            ex_controls, ebuild = _exec_fields(act.get("exec") or {}, include_none=False)
+
+            def build():
+                return {"type": "timer_exec", **tbuild(), "exec": ebuild()}
+            extras = extras + [ft.Divider(height=6),
+                               ft.Text(t("te_header"), size=12, weight=ft.FontWeight.BOLD, color="#9fb4d6")]
+            extras = extras + ex_controls + [ft.Text(t("tm_note"), size=11, color="#9fb4d6")]
+            return (extras, build)
+        key_shell(pos, thdr("cat_practical", "a_timer_exec"), [60, 35, 15], ex)
+
+    def open_alarm(pos):
+        REPEATS = [("al_once", "once"), ("al_daily", "daily"), ("al_weekdays", "weekdays"),
+                   ("al_days", "days"), ("al_interval", "interval")]
+        PRIORITIES = [("al_p_normal", "normal"), ("al_p_urgent", "urgent"),
+                      ("al_p_reminder", "reminder"), ("al_p_break", "break"),
+                      ("al_p_work", "work"), ("al_p_stream", "stream")]
+        WEEKDAYS = ["al_mon", "al_tue", "al_wed", "al_thu", "al_fri", "al_sat", "al_sun"]
+
+        def ex(refresh, cur):
+            act = cur.get("action", {}) if cur.get("action", {}).get("type") == "alarm" else {}
+            time_row, get_time = _time_picker(act.get("time", "07:00"))
+            note_tf = ft.TextField(label=t("al_note"), width=320, value=act.get("note", ""))
+            rep_dd = ft.Dropdown(label=t("al_repeat"), width=220, value=act.get("repeat", "once"),
+                                 options=[ft.DropdownOption(key=v, text=t(k)) for k, v in REPEATS])
+            # dias de la semana (para 'days')
+            cur_days = set(int(d) for d in act.get("days", []))
+            day_chks = [ft.Checkbox(label=t(WEEKDAYS[i]), value=(i in cur_days)) for i in range(7)]
+            days_row = ft.Row(day_chks, wrap=True, visible=(act.get("repeat") == "days"))
+            interval_tf = ft.TextField(label=t("tm_minutes"), width=120,
+                                       value=str(act.get("interval_min", 60)),
+                                       visible=(act.get("repeat") == "interval"))
+
+            def upd_rep():
+                days_row.visible = (rep_dd.value == "days")
+                interval_tf.visible = (rep_dd.value == "interval")
+                days_row.update(); interval_tf.update()
+            rep_dd.on_select = lambda e: upd_rep()
+
+            notify = ft.Checkbox(label=t("tm_notify"), value=act.get("notify", True))
+            sound = ft.Checkbox(label=t("tm_sound"), value=act.get("sound", True))
+            snooze_min = ft.TextField(label=t("al_snooze_min"), width=140,
+                                      value=str(act.get("snooze_min", 5)))
+            snooze_max = ft.TextField(label=t("al_snooze_max"), width=140,
+                                      value=str(act.get("snooze_max", 3)))
+            prio_dd = ft.Dropdown(label=t("al_priority"), width=220, value=act.get("priority", "normal"),
+                                  options=[ft.DropdownOption(key=v, text=t(k)) for k, v in PRIORITIES])
+            escalate = ft.Checkbox(label=t("al_escalate"), value=act.get("escalate", False))
+            ex_controls, ebuild = _exec_fields(act.get("exec") or {}, include_none=True)
+
+            def build():
+                days = [i for i, c in enumerate(day_chks) if c.value]
+                try:
+                    iv = max(1, int(interval_tf.value or 60))
+                except (TypeError, ValueError):
+                    iv = 60
+                return {"type": "alarm", "time": get_time(),
+                        "note": note_tf.value or "", "repeat": rep_dd.value or "once",
+                        "days": days, "interval_min": iv,
+                        "notify": notify.value, "sound": sound.value,
+                        "snooze_min": int(snooze_min.value or 5), "snooze_max": int(snooze_max.value or 3),
+                        "priority": prio_dd.value or "normal", "escalate": escalate.value,
+                        "exec": ebuild()}
+            extras = [time_row, rep_dd, note_tf, days_row, interval_tf,
+                      ft.Row([notify, sound]),
+                      ft.Row([snooze_min, snooze_max]), prio_dd, escalate,
+                      ft.Divider(height=6),
+                      ft.Text(t("al_action_header"), size=12, weight=ft.FontWeight.BOLD, color="#9fb4d6")]
+            extras = extras + ex_controls + [ft.Text(t("al_note_help"), size=11, color="#9fb4d6")]
+            return (extras, build)
+        key_shell(pos, thdr("cat_practical", "a_alarm"), [45, 30, 20], ex)
+
     def open_brightness(pos):
         def ex(refresh, cur):
             act = cur.get("action", {}) if cur.get("action", {}).get("type") == "brightness" else {}
@@ -1120,6 +1644,21 @@ def main(page: ft.Page):
                                 ft.Text(t(key), size=12, expand=True)],
                                vertical_alignment=ft.CrossAxisAlignment.START, spacing=10))
             rows.append(ft.Divider(height=6))
+        # leyenda de los distintivos de long-press (⟲ / ••)
+        rows.append(ft.Text(t("help_lp_title"), size=12, weight=ft.FontWeight.BOLD))
+        rows.append(ft.Row([ft.Icon(I.AUTORENEW, size=18, color="#f0aa28"),
+                            ft.Text(t("help_lp_req"), size=12, expand=True)],
+                           vertical_alignment=ft.CrossAxisAlignment.START, spacing=10))
+        rows.append(ft.Row([ft.Icon(I.MORE_HORIZ, size=18, color="#50c8e6"),
+                            ft.Text(t("help_lp_extra"), size=12, expand=True)],
+                           vertical_alignment=ft.CrossAxisAlignment.START, spacing=10))
+        rows.append(ft.Row([ft.Icon(I.DOUBLE_ARROW, size=18, color="#78e678"),
+                            ft.Text(t("help_badge_double"), size=12, expand=True)],
+                           vertical_alignment=ft.CrossAxisAlignment.START, spacing=10))
+        rows.append(ft.Row([ft.Icon(I.ADD_CIRCLE_OUTLINE, size=18, color="#d282f0"),
+                            ft.Text(t("help_badge_combo"), size=12, expand=True)],
+                           vertical_alignment=ft.CrossAxisAlignment.START, spacing=10))
+        rows.append(ft.Divider(height=6))
         rows.append(ft.TextButton(t("about"), icon=I.INFO_OUTLINE,
                                   on_click=lambda e: (page.pop_dialog(), show_about())))
         page.show_dialog(ft.AlertDialog(modal=True,
@@ -1171,12 +1710,25 @@ def main(page: ft.Page):
                         state["dev"].set_led_color(led_rgb, brightness=int(led_int.value))
                 except Exception as ex:
                     print("[led]", ex)
+                    # handle obsoleto (resume): reconectar y reintentar una vez.
+                    if _reconnect_dev():
+                        try:
+                            with state["devlock"]:
+                                state["dev"].set_led_color(led_rgb, brightness=int(led_int.value))
+                        except Exception:
+                            pass
+
+        def commit_led(*_):
+            # persistir en state["cfg"]["device"] y aplicar via runtime sin SAVE.
+            dev_cfg["led_color"] = list(led_rgb)
+            dev_cfg["led_intensity"] = int(led_int.value)
+            _autosave_soon()
 
         def set_led_sw(rgb):
             led_rgb[:] = list(rgb); led_sw.bgcolor = hexc(led_rgb); led_sw.update()
-            apply_led(); mark_dirty()
+            apply_led(); commit_led(); mark_dirty()
         led_sw.on_click = lambda e: pick_color(led_rgb, set_led_sw)
-        led_int.on_change = lambda e: (apply_led(), mark_dirty())
+        led_int.on_change = lambda e: (apply_led(), commit_led(), mark_dirty())
 
         def store():
             dev_cfg["rotate"] = rot_dd.value
@@ -1206,12 +1758,12 @@ def main(page: ft.Page):
             if applied["v"]:          # estado "Close" -> cerrar
                 page.pop_dialog()
             else:                      # estado "Apply" -> aplicar y pasar a "Close"
-                store(); apply_led()
+                store(); apply_led(); _autosave()
                 applied["v"] = True
                 refresh_apply()
         apply_btn.on_click = on_apply
-        rot_dd.on_change = mark_dirty
-        so_dd.on_change = mark_dirty
+        rot_dd.on_select = mark_dirty
+        so_dd.on_select = mark_dirty
 
         async def do_export(e):
             path = await file_picker.save_file(
@@ -1540,22 +2092,12 @@ def main(page: ft.Page):
         def upd():
             browser_dd.visible = (type_dd.value == "open_url"); browser_dd.update()
             capture_btn.visible = (type_dd.value == "hotkey"); capture_btn.update()
+            param.helper_text = t("goto_page_hint") if type_dd.value == "goto_page" else None
+            param.update()
 
         def capture():
-            def onkey(e):
-                k = getattr(e, "key", None)
-                if not k or k.lower() in ("control", "alt", "shift", "meta"):
-                    return
-                mods = []
-                if getattr(e, "ctrl", False):
-                    mods.append("ctrl")
-                if getattr(e, "alt", False):
-                    mods.append("alt")
-                if getattr(e, "shift", False):
-                    mods.append("shift")
-                param.value = "+".join(mods + [_normkey(k)]); param.update()
-                page.on_keyboard_event = None
-            page.on_keyboard_event = onkey
+            # reutiliza hk_capture: desactiva el boton mientras captura (Escape cancela)
+            hk_capture(param, capture_btn)
 
         def build():
             if type_dd.value == "open_url":
@@ -1577,6 +2119,8 @@ def main(page: ft.Page):
             a = build()
             if a:
                 s["action"] = a
+            if cur.get("action_double"):     # conservar el doble-tap existente
+                s["action_double"] = cur["action_double"]
             keys[str(pos)] = s
             page.pop_dialog(); refresh_device()
 
@@ -1600,6 +2144,175 @@ def main(page: ft.Page):
             actions=[ft.FilledButton(t("save"), icon=I.CHECK, on_click=save),
                      ft.TextButton(t("cancel"), on_click=lambda e: page.pop_dialog())])
         page.show_dialog(dlg); refr(); upd()
+
+    # ---------- doble-tap y combos ----------
+    # subconjunto de acciones "simples" (sin mini-apps) validas para doble-tap/combo
+    DUAL_TYPES = ["none", "run", "open", "open_app", "open_url", "hotkey", "write_text",
+                  "password", "multimedia", "brightness", "close", "super_hotkeys",
+                  "routine", "play_audio", "stop_audio", "screen_capture",
+                  "scene_shift", "goto_scene",
+                  "next_page", "prev_page", "goto_page", "home", "devsleep"]
+    _DUAL_PARAM = {"run", "open", "open_app", "open_url", "hotkey", "write_text",
+                   "password", "multimedia", "brightness", "goto_page",
+                   "close", "super_hotkeys", "routine", "play_audio"}
+
+    def dual_controls(cur_action):
+        """(controles, build, upd) para elegir una accion simple (doble-tap/combo)."""
+        act = cur_action or {}
+        ty0 = act.get("type", "none")
+        if ty0 not in DUAL_TYPES:
+            ty0 = "none"
+        scns = state["cfg"]["scenes"]
+        type_dd = ft.Dropdown(label=t("fld_action"), width=220, value=ty0,
+                              options=[ft.DropdownOption(key=x, text=x) for x in DUAL_TYPES])
+        _pval = {"close": act.get("app", ""), "routine": act.get("name", ""),
+                 "super_hotkeys": act.get("script", ""), "play_audio": act.get("file", "")}
+        param = ft.TextField(label=t("fld_param"), value=_pval.get(ty0, _param_from(act)), width=260,
+                             visible=ty0 in _DUAL_PARAM)
+        target_dd = ft.Dropdown(label=t("scn_target"), width=220, visible=(ty0 == "scene_shift"),
+            value=(str(act.get("target", "next")) if ty0 == "scene_shift" else "next"),
+            options=[ft.DropdownOption(key="prev", text=t("scn_prev")),
+                     ft.DropdownOption(key="next", text=t("scn_next")),
+                     ft.DropdownOption(key="home", text=t("scn_home"))] +
+                    [ft.DropdownOption(key=str(i), text=f"{i+1}. {sc.get('name', 'Scene')}")
+                     for i, sc in enumerate(scns)])
+        scene_dd = ft.Dropdown(label=t("a_goto_scene"), width=220, visible=(ty0 == "goto_scene"),
+            value=(str(act.get("scene", 0)) if ty0 == "goto_scene" else "0"),
+            options=[ft.DropdownOption(key=str(i), text=f"{i+1}. {sc.get('name', 'Scene')}")
+                     for i, sc in enumerate(scns)])
+        cap = ft.FilledButton(t("ui_capture"), icon=I.KEYBOARD, visible=(ty0 == "hotkey"),
+                              on_click=lambda e: hk_capture(param, cap))
+
+        def upd():
+            v = type_dd.value
+            param.visible = v in _DUAL_PARAM
+            param.helper_text = t("goto_page_hint") if v == "goto_page" else None
+            target_dd.visible = (v == "scene_shift")
+            scene_dd.visible = (v == "goto_scene")
+            cap.visible = (v == "hotkey")
+            for c in (param, target_dd, scene_dd, cap):
+                c.update()
+        type_dd.on_select = lambda e: upd()
+
+        def build():
+            v = type_dd.value
+            if v == "scene_shift":
+                tg = target_dd.value or "next"
+                return {"type": "scene_shift", "target": tg if tg in ("prev", "next", "home") else int(tg)}
+            if v == "goto_scene":
+                return {"type": "goto_scene", "scene": int(scene_dd.value or 0)}
+            if v == "devsleep":
+                return {"type": "devsleep"}
+            if v == "close":
+                return {"type": "close", "app": (param.value or "").strip(), "force": False}
+            if v == "routine":
+                n = (param.value or "").strip()
+                return {"type": "routine", "name": n} if n else None
+            if v == "super_hotkeys":
+                s = param.value or ""
+                return {"type": "super_hotkeys", "script": s} if s.strip() else None
+            if v == "play_audio":
+                f = (param.value or "").strip()
+                return {"type": "play_audio", "file": f, "operation": "toggle",
+                        "volume": 100, "output": ""} if f else None
+            if v == "stop_audio":
+                return {"type": "stop_audio"}
+            if v == "screen_capture":
+                return {"type": "screen_capture", "clipboard": True, "save_dir": "", "ask_name": False}
+            if v == "open_url":
+                u = (param.value or "").strip()
+                if u and "://" not in u:
+                    u = "https://" + u
+                return {"type": "open_url", "url": u, "browser": "default"} if u else None
+            return _build_action(v, param.value)
+
+        return ([ft.Row([type_dd, param]), ft.Row([target_dd, scene_dd]), cap], build, upd)
+
+    def open_double(pos):
+        keys = keys_of_page()
+        spec = keys.get(str(pos))
+        if not spec:
+            info(t("dbl_need_key")); return
+        ctrls, build, upd = dual_controls(spec.get("action_double"))
+
+        def save(e):
+            a = build()
+            if a:
+                spec["action_double"] = a
+            else:
+                spec.pop("action_double", None)
+            page.pop_dialog(); refresh_device()
+
+        content = ft.Container(width=560, content=ft.Column(
+            [ft.Text(t("dbl_hint"), size=12, color="#9aa4b2"), ft.Divider(), *ctrls],
+            spacing=10, tight=True, scroll=ft.ScrollMode.AUTO))
+        page.show_dialog(ft.AlertDialog(modal=True,
+            title=ft.Text(f"{t('key_double')} · {t('ui_key_word')} {pos}", weight=ft.FontWeight.BOLD),
+            content=content,
+            actions=[ft.FilledButton(t("save"), icon=I.CHECK, on_click=save),
+                     ft.TextButton(t("cancel"), on_click=lambda e: page.pop_dialog())]))
+        upd()
+
+    def open_combos():
+        pg = cur_page()
+        combos = pg.setdefault("combos", [])
+
+        def _norm(v):
+            s = str(v)
+            return int(s) if s.lstrip("-").isdigit() else s
+
+        def _opts():
+            return ([ft.DropdownOption(key=str(i), text=str(i)) for i in range(15)] +
+                    [ft.DropdownOption(key=n, text=n.upper()) for n in ("left", "mid", "right")])
+
+        list_col = ft.Column(spacing=4, tight=True)
+
+        def redraw():
+            list_col.controls.clear()
+            if not combos:
+                list_col.controls.append(ft.Text(t("combo_empty"), size=12, color="#888"))
+            for idx, c in enumerate(combos):
+                ks = c.get("keys", ["?", "?"])
+                act = (c.get("action") or {}).get("type", "none")
+                list_col.controls.append(ft.Row([
+                    ft.Text(f"{ks[0]} + {ks[1]}   →   {act}", expand=True, size=13),
+                    ft.IconButton(I.DELETE, icon_color="#e05555", icon_size=18,
+                                  on_click=lambda e, i=idx: (combos.pop(i), redraw(),
+                                                             list_col.update()))],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN))
+            try:
+                list_col.update()
+            except Exception:
+                pass
+
+        ka = ft.Dropdown(label=t("combo_keyA"), width=120, options=_opts())
+        kb = ft.Dropdown(label=t("combo_keyB"), width=120, options=_opts())
+        ctrls, build, upd = dual_controls({})
+
+        def add(e):
+            a, b = ka.value, kb.value
+            if a is None or b is None or a == b:
+                info(t("combo_pick2")); return
+            act = build()
+            if not act:
+                info(t("combo_need_act")); return
+            combos.append({"keys": [_norm(a), _norm(b)], "action": act})
+            ka.value = None; kb.value = None
+            ka.update(); kb.update(); redraw()
+
+        content = ft.Container(width=560, content=ft.Column([
+            ft.Text(t("combos_hint"), size=12, color="#9aa4b2"),
+            ft.Container(content=list_col, padding=6, border_radius=8, bgcolor="#15151c"),
+            ft.Divider(),
+            ft.Row([ka, kb]), *ctrls,
+            ft.FilledButton(t("combo_add"), icon=I.ADD, on_click=add),
+        ], spacing=10, tight=True, scroll=ft.ScrollMode.AUTO))
+        page.show_dialog(ft.AlertDialog(modal=True,
+            title=ft.Text(f"{t('key_combos')} · {t('ui_key_word')} {state['sel_page'] + 1}",
+                          weight=ft.FontWeight.BOLD),
+            content=content,
+            actions=[ft.TextButton(t("ok"), on_click=lambda e: (page.pop_dialog(), refresh_device()))]))
+        redraw(); upd()
 
     def open_close(pos):
         apps = get_installed_apps()
@@ -1628,7 +2341,7 @@ def main(page: ft.Page):
             def on_run(e):
                 if run_dd.value:
                     app.value = run_dd.value; app.update()
-            run_dd.on_change = on_run
+            run_dd.on_select = on_run
 
             inst_dd = ft.Dropdown(label=t("cls_installed"), width=300, enable_search=True,
                                   options=[ft.DropdownOption(key=p, text=n) for n, p in apps.items()])
@@ -1636,7 +2349,7 @@ def main(page: ft.Page):
             def on_inst(e):
                 if inst_dd.value:
                     app.value = inst_dd.value; app.update()
-            inst_dd.on_change = on_inst
+            inst_dd.on_select = on_inst
 
             force = ft.Checkbox(label=t("cls_force"), value=act.get("force", False))
             note = ft.Text(t("cls_note"), size=11, color="#888")
@@ -1656,6 +2369,267 @@ def main(page: ft.Page):
             return ([ft.Text(t("devsleep_note"), size=12, color="#888")],
                     lambda: {"type": "devsleep"})
         key_shell(pos, thdr("Stream Dock", "a_devsleep"), [20, 20, 30], ex)
+
+    def _routine_recorder(act):
+        """
+        Grabador reutilizable de rutinas (mouse + teclado opcional).
+        Devuelve (controles, rec, get_data). get_data() -> dict con steps/repeat/
+        speed/stop/record_keys/rec_monitors (compatible con la accion 'mouse' macro).
+        """
+        rec = {"on": False, "abort": False, "thread": None,
+               "frames": list(act.get("steps", []) or []),
+               "rec_monitors": act.get("rec_monitors") or []}
+        counter = ft.Text(f"{t('mev_frames')} {len(rec['frames'])}", size=12, color="#9fb4d6")
+        rep_tf = ft.TextField(label=t("mev_repeat"), width=100, value=str(act.get("repeat", 1) or 1))
+        _spd = str(int(act.get("speed", 1) or 1))
+        if _spd not in ("1", "2", "3", "4", "5"):
+            _spd = "1"
+        speed_dd = ft.Dropdown(label=t("mev_speed"), width=120, value=_spd,
+                               options=[ft.DropdownOption(key=str(n), text=f"{n}x") for n in (1, 2, 3, 4, 5)])
+        status = ft.Text("", size=11, color="#d0a877")
+        _stop_cur = act.get("stop", "ESC")
+        if _stop_cur not in sd_actions.STOP_HOTKEYS:
+            _stop_cur = "ESC"
+        stop_dd = ft.Dropdown(label=t("mev_stop_key"), width=200, value=_stop_cur,
+                              options=[ft.DropdownOption(key=k, text=k) for k in sd_actions.STOP_HOTKEYS.keys()])
+        kb_chk = ft.Checkbox(label=t("mev_record_keyboard"), value=bool(act.get("record_keys", True)))
+        _win = {"hwnd": 0}
+
+        def _win_minimize(mini):
+            try:
+                import ctypes
+                u = ctypes.windll.user32
+                u.GetForegroundWindow.restype = ctypes.c_void_p
+                u.FindWindowW.restype = ctypes.c_void_p
+                u.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+                u.SetForegroundWindow.argtypes = [ctypes.c_void_p]
+                if mini:
+                    hwnd = u.GetForegroundWindow()
+                    if hwnd:
+                        _win["hwnd"] = hwnd
+                    if _win["hwnd"]:
+                        u.ShowWindow(_win["hwnd"], 6)
+                else:
+                    hwnd = _win["hwnd"] or u.FindWindowW(None, WINDOW_TITLE)
+                    if hwnd:
+                        u.ShowWindow(hwnd, 9)
+                        u.SetForegroundWindow(hwnd)
+                    else:
+                        page.window.minimized = False
+                        page.window.focused = True
+                        page.window.update()
+            except Exception as ex:
+                print("[win]", ex)
+
+        def _repeat():
+            try:
+                return max(1, int(rep_tf.value))
+            except (TypeError, ValueError):
+                return 1
+
+        def _sync_buttons():
+            has = bool(rec["frames"])
+            try:
+                rec_btn.content = t("mev_rerecord") if has else t("mev_record")
+                test_btn.disabled = not has
+                clear_btn.disabled = not has
+                rec_btn.update(); test_btn.update(); clear_btn.update()
+            except Exception:
+                pass
+
+        def _rec_loop(stopname, rec_keys):
+            import ctypes
+            user32 = ctypes.windll.user32
+
+            class POINT(ctypes.Structure):
+                _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+            pt = POINT()
+
+            def down(vk):
+                return bool(user32.GetAsyncKeyState(vk) & 0x8000)
+            stop_vks = sd_actions.STOP_HOTKEYS.get(stopname, [0x1B])
+            key_vks = []
+            if rec_keys:
+                for vk in range(0x08, 0xFF):
+                    if vk in (0x01, 0x02, 0x04, 0x05, 0x06):
+                        continue
+                    if vk in stop_vks:
+                        continue
+                    if sd_actions._vk_to_key(vk):
+                        key_vks.append(vk)
+            mons_rec = sd_actions.list_monitors()
+            rec["rec_monitors"] = [{"index": mm["index"], "width": mm["width"],
+                                    "height": mm["height"]} for mm in mons_rec]
+            frames = []; t0 = time.perf_counter()
+            last_pos = None; last_btn = (False, False, False); prev_keys = set()
+            last_ui = 0.0
+            while rec["on"]:
+                if all(down(v) for v in stop_vks):
+                    break
+                user32.GetCursorPos(ctypes.byref(pt))
+                l, r, m = down(0x01), down(0x02), down(0x04)
+                cur_keys = set(v for v in key_vks if down(v)) if rec_keys else set()
+                moved = (last_pos is None or abs(pt.x - last_pos[0]) >= 2
+                         or abs(pt.y - last_pos[1]) >= 2)
+                btn_chg = (l, r, m) != last_btn
+                kd = sorted(cur_keys - prev_keys)
+                ku = sorted(prev_keys - cur_keys)
+                if moved or btn_chg or kd or ku:
+                    ms = int((time.perf_counter() - t0) * 1000)
+                    fr = {"t": ms, "x": int(pt.x), "y": int(pt.y), "l": l, "r": r, "m": m}
+                    mi = sd_actions.monitor_at(pt.x, pt.y, mons_rec)
+                    if mi is not None:
+                        fr["mon"] = mi
+                        fr["rx"] = int(pt.x) - mons_rec[mi]["x"]
+                        fr["ry"] = int(pt.y) - mons_rec[mi]["y"]
+                    if kd:
+                        fr["kd"] = kd
+                    if ku:
+                        fr["ku"] = ku
+                    frames.append(fr)
+                    last_pos = (pt.x, pt.y); last_btn = (l, r, m); prev_keys = cur_keys
+                    if len(frames) >= 8000:
+                        break
+                now = time.perf_counter()
+                if now - last_ui > 0.25:
+                    last_ui = now
+                    try:
+                        counter.value = f"{t('mev_frames')} {len(frames)}"; counter.update()
+                    except Exception:
+                        pass
+                time.sleep(0.012)
+            rec["on"] = False
+            rec["frames"] = frames
+            sd_actions.close_overlay()
+            _win_minimize(False)
+            try:
+                status.value = f"{t('mev_rec_stopped')} {len(frames)} {t('mev_frames_word')}."
+                counter.value = f"{t('mev_frames')} {len(frames)}"
+                rec_btn.disabled = False; stop_btn.disabled = True
+                status.update(); counter.update(); rec_btn.update(); stop_btn.update()
+            except Exception:
+                pass
+            _sync_buttons()
+
+        def start_rec(e):
+            if rec["on"]:
+                return
+            rec["abort"] = False
+            rec_btn.disabled = True; stop_btn.disabled = False
+            test_btn.disabled = True; clear_btn.disabled = True
+            rec_btn.update(); stop_btn.update(); test_btn.update(); clear_btn.update()
+            stopname = stop_dd.value or "ESC"
+            rec_keys = bool(kb_chk.value)
+            _win_minimize(True)
+
+            def pre():
+                for s in (3, 2, 1):
+                    if rec["abort"]:
+                        break
+                    sd_actions.show_overlay(str(s), "#f0a030", mode="count", subtitle=t("ov_preparing"))
+                    try:
+                        status.value = f"{t('mev_recording_in')} {s}..."; status.update()
+                    except Exception:
+                        pass
+                    time.sleep(1.0)
+                if rec["abort"]:
+                    sd_actions.close_overlay(); _win_minimize(False)
+                    try:
+                        status.value = t("mev_cancelled")
+                        rec_btn.disabled = False; stop_btn.disabled = True
+                        status.update(); rec_btn.update(); stop_btn.update()
+                    except Exception:
+                        pass
+                    _sync_buttons()
+                    return
+                extra = f" {t('ov_plus_keyboard')}" if rec_keys else ""
+                sd_actions.show_overlay(
+                    f"{t('ov_rec_mouse')}{extra}  —  {t('ov_press')} {stopname} {t('ov_to_stop')}", "#c0392b")
+                rec["on"] = True
+                _rec_loop(stopname, rec_keys)
+            rec["thread"] = threading.Thread(target=pre, daemon=True)
+            rec["thread"].start()
+
+        def _confirm_regrab(e):
+            if not rec["frames"]:
+                start_rec(e)
+                return
+
+            def yes(ev):
+                page.pop_dialog()
+                start_rec(ev)
+            page.show_dialog(ft.AlertDialog(
+                modal=True, title=ft.Text(t("mev_rerecord")), content=ft.Text(t("mev_regrab_body")),
+                actions=[ft.FilledButton(t("mev_regrab_yes"), icon=I.FIBER_MANUAL_RECORD, on_click=yes),
+                         ft.TextButton(t("cancel"), on_click=lambda ev: page.pop_dialog())]))
+
+        def stop_rec(e):
+            rec["abort"] = True; rec["on"] = False
+            try:
+                status.value = t("mev_stopping"); status.update()
+            except Exception:
+                pass
+
+        def clear_rec(e):
+            rec["frames"] = []
+            counter.value = f"{t('mev_frames')} 0"
+            status.value = t("mev_deleted")
+            counter.update(); status.update()
+            _sync_buttons()
+
+        def do_test(e):
+            if not rec["frames"]:
+                return
+            _stopk = stop_dd.value or "ESC"
+            spec = {"type": "mouse", "event": "macro", "steps": rec["frames"],
+                    "repeat": _repeat(), "speed": int(speed_dd.value or 1), "stop": _stopk,
+                    "record_keys": bool(kb_chk.value), "rec_monitors": rec.get("rec_monitors") or [],
+                    "overlay_text": f"{t('ov_playing')}  —  {t('ov_press')} {_stopk} {t('ov_to_stop')}"}
+            a = sd_actions.from_spec(spec)
+            if not callable(a):
+                return
+
+            def run():
+                try:
+                    status.value = t("mev_testing"); status.update()
+                except Exception:
+                    pass
+                _win_minimize(True); time.sleep(0.4)
+                try:
+                    a(None)
+                except Exception as ex:
+                    print("[routine test]", ex)
+                finally:
+                    sd_actions.close_overlay(); _win_minimize(False)
+                try:
+                    status.value = t("mev_test_done"); status.update()
+                except Exception:
+                    pass
+            threading.Thread(target=run, daemon=True).start()
+
+        _has0 = bool(rec["frames"])
+        rec_btn = ft.FilledButton(t("mev_rerecord") if _has0 else t("mev_record"),
+                                  icon=I.FIBER_MANUAL_RECORD, on_click=_confirm_regrab)
+        stop_btn = ft.FilledButton(t("mev_stop_btn"), icon=I.STOP, on_click=stop_rec, disabled=True)
+        test_btn = ft.OutlinedButton(t("mev_test"), icon=I.PLAY_ARROW, on_click=do_test, disabled=not _has0)
+        clear_btn = ft.TextButton(t("mev_clear"), icon=I.DELETE_SWEEP, on_click=clear_rec, disabled=not _has0)
+
+        controls = [
+            ft.Row([ft.Icon(I.MOUSE, size=16, color="#9fb4d6"),
+                    ft.Text(t("mev_recorder"), size=12, weight=ft.FontWeight.BOLD)]),
+            ft.Text(t("mev_recorder_note"), size=11, color="#888"),
+            stop_dd, kb_chk,
+            ft.Row([rec_btn, stop_btn]),
+            ft.Row([rep_tf, speed_dd]),
+            ft.Row([test_btn, clear_btn]),
+            counter, status,
+        ]
+
+        def get_data():
+            return {"steps": rec["frames"], "repeat": _repeat(),
+                    "speed": int(speed_dd.value or 1), "stop": stop_dd.value or "ESC",
+                    "record_keys": bool(kb_chk.value), "rec_monitors": rec.get("rec_monitors") or []}
+        return (controls, rec, get_data)
 
     def open_mouse(pos):
         EVTS = [("mev_left", "left"), ("mev_right", "right"),
@@ -2098,8 +3072,12 @@ def main(page: ft.Page):
             act = cur.get("action", {}) if cur.get("action", {}).get("type") == "hotkey_switch" else {}
             a_tf = ft.TextField(label=t("hs_shortcut_a"), value="+".join(act.get("a", [])), width=220)
             b_tf = ft.TextField(label=t("hs_shortcut_b"), value="+".join(act.get("b", [])), width=220)
-            rows = [ft.Row([a_tf, ft.FilledButton(t("hs_capture_a"), on_click=lambda e: hk_capture(a_tf))]),
-                    ft.Row([b_tf, ft.FilledButton(t("hs_capture_b"), on_click=lambda e: hk_capture(b_tf))]),
+            cap_a = ft.FilledButton(t("hs_capture_a"))
+            cap_a.on_click = lambda e: hk_capture(a_tf, cap_a)
+            cap_b = ft.FilledButton(t("hs_capture_b"))
+            cap_b.on_click = lambda e: hk_capture(b_tf, cap_b)
+            rows = [ft.Row([a_tf, cap_a]),
+                    ft.Row([b_tf, cap_b]),
                     ft.Text(t("hs_note"), size=11, color="#888")]
 
             def build():
@@ -2115,8 +3093,9 @@ def main(page: ft.Page):
             hint = ft.Text(t("super_hint"), size=11, color="#888")
 
             # --- selector visual de teclas ---
-            mods = {v: ft.Checkbox(label=n, value=False) for n, v in HK_MODS}
-            delay_tf = ft.TextField(label=t("shk_delay"), width=110, value="")
+            mods = {v: ft.Checkbox(label=n, value=False, width=92) for n, v in HK_MODS}
+            delay_tf = ft.TextField(label=t("shk_delay"), width=110, hint_text="1000",
+                                    value=(str(act.get("delay")) if act.get("delay") else ""))
             preview = ft.Text("—", size=14, weight=ft.FontWeight.BOLD, color="#9fb4d6")
             sel = {"key": None}
 
@@ -2138,12 +3117,12 @@ def main(page: ft.Page):
                 cb.on_change = lambda e: _upd_preview()
 
             def add_combo(keys):
+                # el combo se agrega SIN ':ms': hereda el retardo global (delay_tf).
+                # Para un retardo distinto en una linea concreta, editala a mano
+                # anadiendo ':ms' (p.ej. 'ctrl+shift+esc:1500').
                 if not keys:
                     return
                 line = "+".join(keys)
-                d = (delay_tf.value or "").strip()
-                if d.isdigit() and int(d) > 0:
-                    line += ":" + d
                 base = tf.value or ""
                 if base and not base.endswith("\n"):
                     base += "\n"
@@ -2179,18 +3158,58 @@ def main(page: ft.Page):
             def add_mods_only(e):
                 add_combo([v for _n, v in HK_MODS if mods[v].value])
 
+            # boton: capturar una combinacion pulsandola y agregarla como linea
+            cap_btn = ft.FilledButton(t("ui_capture"), icon=I.KEYBOARD)
+            cap_btn.on_click = lambda e: hk_capture(tf, cap_btn, append=True)
+
+            # modo de las lineas de TEXTO: maquina de escribir (letra a letra) o pegar
+            text_mode_dd = ft.Dropdown(label=t("shk_text_mode"), width=210,
+                value=act.get("text_mode", "type"),
+                options=[ft.DropdownOption(key="type", text=t("shk_tm_type")),
+                         ft.DropdownOption(key="paste", text=t("shk_tm_paste"))])
+            text_delay_tf = ft.TextField(label=t("shk_text_delay"), width=130,
+                value=str(act.get("text_delay", 500)))
+
+            def upd_textmode(*_):
+                text_delay_tf.visible = (text_mode_dd.value == "type")
+                text_delay_tf.update()
+            text_mode_dd.on_select = lambda e: upd_textmode()
+            text_delay_tf.visible = (text_mode_dd.value == "type")
+
+            def add_delay(e):
+                # inserta una PAUSA entre combos (una linea con el nº de ms).
+                d = (delay_tf.value or "").strip()
+                if not d.isdigit():
+                    return
+                base = tf.value or ""
+                if base and not base.endswith("\n"):
+                    base += "\n"
+                tf.value = base + d
+                tf.update()
+
             builder = [
                 ft.Divider(height=6),
                 ft.Text(t("shk_builder"), size=12, weight=ft.FontWeight.BOLD),
-                ft.Row([mods["ctrl"], mods["shift"], mods["alt"], mods["win"]], wrap=True),
-                ft.Row([ft.Container(content=menu, width=230), delay_tf],
+                ft.Row([mods["ctrl"], mods["shift"], mods["alt"], mods["win"]],
+                       spacing=4, wrap=False),
+                ft.Row([ft.Container(content=menu, width=230), delay_tf,
+                        ft.TextButton(t("shk_add_delay"), icon=I.TIMER, on_click=add_delay)],
                        alignment=ft.MainAxisAlignment.START),
                 ft.Row([ft.Text(t("shk_preview") + ":"), preview,
                         ft.TextButton(t("shk_add_mods"), icon=I.ADD, on_click=add_mods_only)]),
+                ft.Row([cap_btn, ft.Text(t("shk_capture_hint"), size=11, color="#888")]),
+                ft.Row([text_mode_dd, text_delay_tf]),
             ]
 
             def build():
-                return {"type": "super_hotkeys", "script": tf.value or ""}
+                spec = {"type": "super_hotkeys", "script": tf.value or ""}
+                d = (delay_tf.value or "").strip()
+                if d.isdigit():
+                    spec["delay"] = int(d)
+                spec["text_mode"] = text_mode_dd.value or "type"
+                td = (text_delay_tf.value or "").strip()
+                spec["text_delay"] = int(td) if td.isdigit() else 500
+                return spec
             return ([tf, hint, *builder], build)
         key_shell(pos, thdr("cat_toolbox", "a_super_hotkeys"), [40, 20, 50], ex)
 
@@ -2267,6 +3286,30 @@ def main(page: ft.Page):
             return open_play_audio(pos)
         if kind == "stop_audio":
             return open_stop_audio(pos)
+        if kind == "timer":
+            return open_timer(pos)
+        if kind == "timer_exec":
+            return open_timer_exec(pos)
+        if kind == "routine":
+            return open_routines(pos)
+        if kind == "calendar":
+            return open_calendar(pos)
+        if kind == "alarm":
+            return open_alarm(pos)
+        if kind == "recorder":
+            return open_recorder(pos)
+        if kind == "recorder_toggle":
+            return open_recorder(pos, "recorder_toggle")
+        if kind == "reminder":
+            return open_reminder(pos)
+        if kind == "todo":
+            return open_todo(pos)
+        if kind == "screen_capture":
+            return open_screen_capture(pos)
+        if kind == "calc":
+            return open_calc(pos)
+        if kind == "seq_repeat":
+            return open_seq_repeat(pos)
         if kind == "brightness":
             return open_brightness(pos)
         if kind and kind.startswith("obs_"):
@@ -2350,16 +3393,69 @@ def main(page: ft.Page):
             refresh_device()
         _confirm_overwrite(dst, do)
 
+    def capture_region_to_file():
+        """Lanza el selector de area (otro proceso), minimiza esta ventana
+        mientras tanto y devuelve la ruta del PNG guardado (o None si se cancela)."""
+        import subprocess
+        import time
+        cap_dir = os.path.join(m18_paths.data_dir(), "captures")
+        try:
+            os.makedirs(cap_dir, exist_ok=True)
+        except Exception:
+            pass
+        state["_cap_n"] = state.get("_cap_n", 0) + 1
+        out = os.path.join(cap_dir, f"cap_{int(time.time())}_{state['_cap_n']}.png")
+        if getattr(sys, "frozen", False):
+            args = [sys.executable, "--region-capture", "--out", out]
+        else:
+            args = [sys.executable, os.path.join(HERE, "region_capture.py"), "--out", out]
+        try:
+            page.window.minimized = True
+            page.window.update()
+        except Exception:
+            pass
+        try:
+            subprocess.run(args, creationflags=0x08000000)
+        except Exception as ex:
+            print("[capture]", ex)
+        finally:
+            try:
+                page.window.minimized = False
+                page.window.focused = True
+                page.window.update()
+            except Exception:
+                pass
+        return out if os.path.exists(out) else None
+
+    def capture_region_for_key(pos):
+        """Captura un area y la asigna como imagen de la tecla, conservando el
+        resto del spec (titulo/accion/color)."""
+        path = capture_region_to_file()
+        if not path:
+            return
+        keys = keys_of_page()
+        spec = dict(keys.get(str(pos), {}))
+        spec["image"] = path
+        keys[str(pos)] = spec
+        refresh_device()
+
     def key_menu(pos):
         state["sel_key"] = pos
         has = bool(keys_of_page().get(str(pos)))
         can_paste = bool(state.get("clipboard_key"))
-        rows = [ft.TextButton(t("key_copy"), icon=I.CONTENT_COPY, disabled=not has,
+        rows = [ft.TextButton(t("ui_capture_region"), icon=I.CROP,
+                              on_click=lambda e: (page.pop_dialog(), capture_region_for_key(pos))),
+                ft.TextButton(t("key_copy"), icon=I.CONTENT_COPY, disabled=not has,
                               on_click=lambda e: (page.pop_dialog(), copy_key(pos))),
                 ft.TextButton(t("key_paste"), icon=I.CONTENT_PASTE, disabled=not can_paste,
                               on_click=lambda e: (page.pop_dialog(), paste_key(pos))),
                 ft.TextButton(t("clear_key"), icon=I.DELETE_SWEEP, disabled=not has,
-                              on_click=lambda e: (page.pop_dialog(), clear_key_at(pos)))]
+                              on_click=lambda e: (page.pop_dialog(), clear_key_at(pos))),
+                ft.Divider(height=6),
+                ft.TextButton(t("key_double"), icon=I.TOUCH_APP, disabled=not has,
+                              on_click=lambda e: (page.pop_dialog(), open_double(pos))),
+                ft.TextButton(t("key_combos"), icon=I.KEYBOARD_DOUBLE_ARROW_RIGHT,
+                              on_click=lambda e: (page.pop_dialog(), open_combos()))]
         page.show_dialog(ft.AlertDialog(modal=True,
             title=ft.Text(f"{t('ui_key_word')} {pos}"),
             content=ft.Container(width=220, content=ft.Column(rows, tight=True, spacing=4)),
@@ -2386,6 +3482,19 @@ def main(page: ft.Page):
             inner = ft.Container(width=size, height=size, bgcolor="#0b0b0f",
                                  border_radius=rad, alignment=ft.Alignment(0, 0),
                                  content=ft.Text(str(pos), size=10, color="#666"))
+        # distintivos: doble-tap (» verde, arriba-dcha) y combo (+ morado, arriba-izq)
+        ov = []
+        if spec and spec.get("action_double"):
+            ov.append(ft.Container(width=15, height=15, border_radius=8, bgcolor="#1c5c1c",
+                                   right=2, top=2, alignment=ft.Alignment(0, 0),
+                                   content=ft.Text("»", size=10, color="#9cff9c")))
+        combo_keys = [k for cmb in cur_page().get("combos", []) for k in cmb.get("keys", [])]
+        if pos in combo_keys or str(pos) in combo_keys:
+            ov.append(ft.Container(width=15, height=15, border_radius=8, bgcolor="#4a1c5c",
+                                   left=2, top=2, alignment=ft.Alignment(0, 0),
+                                   content=ft.Text("+", size=11, color="#e0a8ff")))
+        if ov:
+            inner = ft.Stack([inner, *ov], width=size, height=size)
         cont = ft.Container(
             content=inner, padding=3, border_radius=10, alignment=ft.Alignment(0, 0),
             bgcolor="#4fe3ff" if selected else "#00000000",
@@ -2430,10 +3539,13 @@ def main(page: ft.Page):
 
     def aux_label(name):
         spec = state["cfg"].get("aux", {}).get(name)
-        act = spec.get("action", {}).get("type") if spec and spec.get("action") else None
+        action = spec.get("action", {}) if spec and spec.get("action") else {}
+        act = action.get("type")
+        if act == "scene_shift":   # ciclo de escenas: etiqueta segun destino
+            tg = action.get("target", "next")
+            return {"prev": "PREV", "next": "NEXT", "home": "HOME"}.get(str(tg), "SCENE")
         m = {"prev_page": "PREV", "next_page": "NEXT", "home": "HOME", "goto_page": "GOTO",
-             "scene_shift": "SCENE", "goto_scene": "SCENE", "brightness": "BRI",
-             "devsleep": "SLEEP"}
+             "goto_scene": "SCENE", "brightness": "BRI", "devsleep": "SLEEP"}
         return m.get(act, (act.upper()[:5] if act else name.upper()[:4]))
 
     AUX_NAMES = {"left": "PREV", "mid": "HOME", "right": "NEXT"}
@@ -2453,7 +3565,8 @@ def main(page: ft.Page):
         scns = state["cfg"]["scenes"]
         scene_dd = ft.Dropdown(label=t("scn_target"), width=300, visible=False,
             options=[ft.DropdownOption(key="prev", text=t("scn_prev")),
-                     ft.DropdownOption(key="next", text=t("scn_next"))] +
+                     ft.DropdownOption(key="next", text=t("scn_next")),
+                     ft.DropdownOption(key="home", text=t("scn_home"))] +
                     [ft.DropdownOption(key=str(i), text=f"{i+1}. {sc.get('name', 'Scene')}")
                      for i, sc in enumerate(scns)])
         goto_scene_dd = ft.Dropdown(label=t("a_goto_scene"), width=300, visible=False,
@@ -2462,7 +3575,7 @@ def main(page: ft.Page):
         page_tf = ft.TextField(label=t("goto_page_idx"), width=180, visible=False, value="1")
         bright_tf = ft.TextField(label=f"{t('a_brightness')} (0-100)", width=180, visible=False, value="80")
         if atype == "scene_shift":
-            _tg = act.get("target", "next"); scene_dd.value = _tg if _tg in ("prev", "next") else str(_tg)
+            _tg = act.get("target", "next"); scene_dd.value = _tg if _tg in ("prev", "next", "home") else str(_tg)
         if atype == "goto_scene":
             goto_scene_dd.value = str(act.get("scene", 0))
         if atype == "goto_page":
@@ -2478,7 +3591,7 @@ def main(page: ft.Page):
             bright_tf.visible = (v == "brightness")
             for c in (scene_dd, goto_scene_dd, page_tf, bright_tf):
                 c.update()
-        dd.on_change = lambda e: upd()
+        dd.on_select = lambda e: upd()
 
         def save(e):
             v = dd.value
@@ -2488,7 +3601,7 @@ def main(page: ft.Page):
                 spec = {"type": v}
                 if v == "scene_shift":
                     sv = scene_dd.value or "next"
-                    spec["target"] = sv if sv in ("prev", "next") else int(sv)
+                    spec["target"] = sv if sv in ("prev", "next", "home") else int(sv)
                 elif v == "goto_scene":
                     spec["scene"] = int(goto_scene_dd.value or 0)
                 elif v == "goto_page":
@@ -2544,6 +3657,21 @@ def main(page: ft.Page):
             os.replace(tmp, CONFIG_PATH)
         except Exception as ex:
             print("[autosave]", ex)
+
+    def _autosave_soon(delay=0.25):
+        # autosave DIFERIDO para cambios continuos (sliders de brillo/LED): evita
+        # escribir config.json en cada tick; guarda ~`delay`s tras el ultimo cambio.
+        # El runtime aplica esos cambios en caliente (solo brillo/LED, sin repintar).
+        tmr = state.get("_savetmr")
+        if tmr is not None:
+            try:
+                tmr.cancel()
+            except Exception:
+                pass
+        nt = threading.Timer(delay, _autosave)
+        nt.daemon = True
+        state["_savetmr"] = nt
+        nt.start()
 
     # ---------- escenas (panel izquierdo) ----------
     def move_scene(src, dst):
@@ -2833,14 +3961,41 @@ def main(page: ft.Page):
             actions=[ft.TextButton(t("ok"), on_click=lambda e: page.pop_dialog())]))
 
     # ---------- dispositivo (conectar / previsualizar / brillo) ----------
+    def _reconnect_dev():
+        """Reabre el handle PROPIO del configurador cuando queda obsoleto (p.ej.
+        tras suspender/reanudar el PC: las escrituras HID empiezan a fallar y los
+        controles de brillo/LED dejan de responder). Restaura brillo, LED y el
+        contenido actual de las teclas. Devuelve True si reconecto."""
+        d = state.get("dev")
+        if d is None:
+            return False
+        try:
+            with state["devlock"]:
+                if not d.reopen():
+                    return False
+                d.set_brightness(int(bright_slider.value))
+                app = build_app_from_config(state["cfg"], device=d)
+                app.goto_scene(state["sel_scene"], render=False)
+                app.goto_page(state["sel_page"])   # repinta las teclas
+                app.apply_device_cfg()             # LED lateral
+            print("[cfg] dispositivo reconectado")
+            return True
+        except Exception as ex:
+            print("[cfg] reconnect:", ex)
+            return False
+
     def _ka_loop():
         while state.get("dev") is not None:
+            failed = False
             try:
                 with state["devlock"]:
                     if state.get("dev"):
                         state["dev"].keepalive()
             except Exception:
-                pass
+                failed = True
+            # Escritura HID fallida -> handle obsoleto (resume): auto-reconectar.
+            if failed:
+                _reconnect_dev()
             time.sleep(4)
 
     def toggle_device(e):
@@ -2882,7 +4037,15 @@ def main(page: ft.Page):
                 with state["devlock"]:
                     state["dev"].set_brightness(int(bright_slider.value))
             except Exception:
-                pass
+                # handle obsoleto (resume): reconectar y reintentar una vez.
+                if _reconnect_dev():
+                    try:
+                        with state["devlock"]:
+                            state["dev"].set_brightness(int(bright_slider.value))
+                    except Exception:
+                        pass
+        # aplicar automaticamente via el runtime (bandeja), sin pulsar SAVE.
+        _autosave_soon()
 
     conn_btn = ft.FilledButton(t("connect"), icon=I.USB, on_click=toggle_device)
     bright_slider = ft.Slider(min=0, max=100, value=state["cfg"].get("brightness", 80),
@@ -2996,7 +4159,8 @@ def _param_from(act):
     if t == "write_text":
         return act.get("text", "")
     if t == "goto_page":
-        return str(act.get("page", 0))
+        # UI 1-based (pagina 1 = primera); internamente se guarda 0-based.
+        return str(int(act.get("page", 0)) + 1)
     if t == "brightness":
         return str(act.get("value", 80))
     if t == "multimedia":
@@ -3028,7 +4192,11 @@ def _build_action(t, p):
     if t == "brightness":
         return {"type": "brightness", "value": int(p or 80)}
     if t == "goto_page":
-        return {"type": "goto_page", "page": int(p or 0)}
+        # el usuario escribe 1-based (pagina 1 = primera); guardar 0-based.
+        try:
+            return {"type": "goto_page", "page": max(0, int(p) - 1)}
+        except (TypeError, ValueError):
+            return {"type": "goto_page", "page": 0}
     if t in ("next_page", "prev_page", "home"):
         return {"type": t}
     return None

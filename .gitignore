@@ -16,6 +16,10 @@ dist_app/
 *.tmp
 config.json.tmp
 
+# Logs de depuracion y estado de runtime (locales, NO subir)
+*_debug.log
+alarms_state.json
+
 # Backups / exports del usuario
 BK*.json
 
