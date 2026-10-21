@@ -46,6 +46,8 @@ def build():
            "--add-data", f"region_capture.py{SEP}.",
            "--add-data", f"hid_scan.py{SEP}.",
            "--add-data", f"README.md{SEP}.",
+           "--add-data", f"help_guide_es.html{SEP}.",
+           "--add-data", f"help_guide_en.html{SEP}.",
            "--add-data", f"streamdock_m18{SEP}streamdock_m18",
            "--hidden-import", "hid",
            # Audio Player (import perezoso en streamdock_m18/audio.py): forzamos

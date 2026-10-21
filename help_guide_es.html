@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stream Dock M18 · Guía completa</title>
+<style>
+  :root{
+    --bg:#0f1116; --bg2:#161922; --card:#1b1f2a; --line:#2a2f3c;
+    --fg:#e7ebf2; --mut:#9aa4b5; --acc:#4fe3ff; --acc2:#78e678;
+    --amber:#f0aa28; --cyan:#50c8e6; --green:#78e678; --purple:#d282f0;
+    --code:#0c0e13;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.6 "Segoe UI",system-ui,Arial,sans-serif;}
+  a{color:var(--acc);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{display:flex;max-width:1200px;margin:0 auto}
+  /* Sidebar */
+  nav{position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;
+    width:258px;flex:0 0 258px;padding:22px 14px;background:var(--bg2);
+    border-right:1px solid var(--line)}
+  nav h1{font-size:15px;margin:0 0 4px;color:var(--acc)}
+  nav .sub{font-size:11px;color:var(--mut);margin-bottom:16px}
+  nav a{display:block;color:var(--mut);padding:5px 10px;border-radius:7px;font-size:13px}
+  nav a:hover{background:#222634;color:var(--fg);text-decoration:none}
+  nav .grp{font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:#5f6878;margin:16px 10px 4px}
+  /* Content */
+  main{flex:1;min-width:0;padding:34px 40px 120px}
+  h2{font-size:26px;margin:46px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+  h2:first-of-type{border:0;margin-top:0}
+  h3{font-size:18px;margin:26px 0 8px;color:#cfe8ff}
+  p{margin:8px 0}
+  code{background:var(--code);border:1px solid var(--line);border-radius:5px;
+    padding:1px 6px;font:13px "Cascadia Code",Consolas,monospace;color:#cde3ff}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;overflow-x:auto;margin:12px 0}
+  pre code{background:none;border:0;padding:0;color:#cfe3ff;white-space:pre}
+  .lead{font-size:16px;color:var(--mut)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;margin:14px 0}
+  .ex{background:#12241a;border:1px solid #244a33;border-radius:10px;padding:12px 16px;margin:12px 0}
+  .ex b{color:var(--green)}
+  .tip{background:#0e2230;border:1px solid #1d4458;border-radius:10px;padding:12px 16px;margin:12px 0}
+  .tip b{color:var(--cyan)}
+  .warn{background:#2a1a12;border:1px solid #5a3420;border-radius:10px;padding:12px 16px;margin:12px 0}
+  .warn b{color:var(--amber)}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:#20252f;color:#cfe8ff;font-weight:600}
+  tr:nth-child(even) td{background:#161a23}
+  .pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;
+    border:1px solid var(--line);background:#20252f;color:var(--mut);margin:0 2px}
+  .figure{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:18px;margin:16px 0;text-align:center}
+  .figure figcaption{color:var(--mut);font-size:13px;margin-top:10px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:860px){
+    nav{display:none} main{padding:22px 16px} .two{grid-template-columns:1fr}
+  }
+  .badge-k{font-weight:700}
+  svg{max-width:100%;height:auto}
+  .kbd{display:inline-block;background:#20252f;border:1px solid var(--line);
+    border-bottom-width:2px;border-radius:5px;padding:0 7px;font-size:12px;color:#dce6f2}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <h1>Stream Dock M18</h1>
+  <div class="sub">by JARCMASTER · Guía completa</div>
+  <a href="#intro">Introducción</a>
+  <div class="grp">Conceptos</div>
+  <a href="#modelo">Escenas, páginas y teclas</a>
+  <a href="#dispositivo">El dispositivo</a>
+  <a href="#asignar">Asignar una acción</a>
+  <a href="#gestos">Gestos: tap, long-press, doble-tap, combos</a>
+  <div class="grp">Librería de acciones</div>
+  <a href="#cat-streamdock">Stream Dock</a>
+  <a href="#cat-toolbox">Toolbox</a>
+  <a href="#cat-audio">Audio Player</a>
+  <a href="#cat-practical">Practical</a>
+  <a href="#cat-opflow">Operation Flow</a>
+  <a href="#cat-obs">OBS Studio</a>
+  <div class="grp">Avanzado</div>
+  <a href="#escenas">Gestionar escenas</a>
+  <a href="#ajustes">Ajustes del dispositivo</a>
+  <a href="#exportar">Exportar / importar (con iconos)</a>
+  <a href="#bandeja">Bandeja y autoarranque</a>
+  <a href="#problemas">Solución de problemas</a>
+</nav>
+
+<main>
+<!-- ============================ INTRO ============================ -->
+<h2 id="intro">Introducción</h2>
+<p class="lead">Stream Dock M18 es un controlador con 15 teclas LCD y 3 botones laterales.
+Esta aplicación (driver propio, sin el software oficial VSD) te permite asignar a cada
+tecla una imagen, un título y una <b>acción</b>, organizarlas en <b>escenas</b> y
+<b>páginas</b>, y dispararlas con distintos <b>gestos</b>.</p>
+
+<div class="card">
+<b>Dos piezas que conviene conocer:</b>
+<ul>
+  <li><b>Configurador</b> — la ventana donde diseñas todo (teclas, escenas, acciones).</li>
+  <li><b>Servidor / bandeja</b> — proceso que habla con el M18 y ejecuta las acciones.
+      Vive en la bandeja del sistema aunque cierres el configurador; solo “Salir” lo apaga.</li>
+</ul>
+</div>
+
+<!-- ============================ MODELO ============================ -->
+<h2 id="modelo">Escenas, páginas y teclas</h2>
+<p>La configuración tiene tres niveles. Entenderlos es la clave para sacarle partido:</p>
+
+<figure class="figure">
+<svg viewBox="0 0 720 300" role="img" aria-label="Jerarquía escena, página, tecla">
+  <rect x="20" y="20" width="200" height="70" rx="10" fill="#1b2a3a" stroke="#4fe3ff"/>
+  <text x="120" y="50" fill="#cfe8ff" font-size="15" text-anchor="middle" font-weight="700">ESCENA</text>
+  <text x="120" y="72" fill="#9aa4b5" font-size="12" text-anchor="middle">p.ej. “Trabajo”, “Streaming”</text>
+
+  <rect x="260" y="20" width="200" height="70" rx="10" fill="#1b2a3a" stroke="#50c8e6"/>
+  <text x="360" y="50" fill="#cfe8ff" font-size="15" text-anchor="middle" font-weight="700">PÁGINA</text>
+  <text x="360" y="72" fill="#9aa4b5" font-size="12" text-anchor="middle">15 teclas · varias por escena</text>
+
+  <rect x="500" y="20" width="200" height="70" rx="10" fill="#1b2a3a" stroke="#78e678"/>
+  <text x="600" y="50" fill="#cfe8ff" font-size="15" text-anchor="middle" font-weight="700">TECLA</text>
+  <text x="600" y="72" fill="#9aa4b5" font-size="12" text-anchor="middle">imagen + título + acción</text>
+
+  <line x1="220" y1="55" x2="260" y2="55" stroke="#5f6878" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="460" y1="55" x2="500" y2="55" stroke="#5f6878" stroke-width="2" marker-end="url(#a)"/>
+
+  <text x="120" y="130" fill="#9aa4b5" font-size="12" text-anchor="middle">contiene ▾</text>
+  <text x="360" y="130" fill="#9aa4b5" font-size="12" text-anchor="middle">contiene ▾</text>
+  <rect x="40"  y="150" width="160" height="40" rx="8" fill="#141821" stroke="#2a2f3c"/>
+  <text x="120" y="175" fill="#e7ebf2" font-size="12" text-anchor="middle">1..N páginas</text>
+  <rect x="280" y="150" width="160" height="40" rx="8" fill="#141821" stroke="#2a2f3c"/>
+  <text x="360" y="175" fill="#e7ebf2" font-size="12" text-anchor="middle">hasta 15 teclas (0–14)</text>
+  <rect x="520" y="150" width="160" height="40" rx="8" fill="#141821" stroke="#2a2f3c"/>
+  <text x="600" y="175" fill="#e7ebf2" font-size="12" text-anchor="middle">1 acción + extras</text>
+
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#5f6878"/></marker></defs>
+</svg>
+<figcaption>Una <b>escena</b> agrupa <b>páginas</b>; cada página tiene hasta 15 <b>teclas</b>.</figcaption>
+</figure>
+
+<h3>Escena</h3>
+<p>Un conjunto de páginas pensado para un contexto (por ejemplo “Trabajo” y “Streaming”).
+Cambias de escena con los botones laterales o con la acción <a href="#a-scene_shift">Scene Shift</a>.
+Una escena es la <b>escena por defecto</b> (“home”): es la que se carga al arrancar y a la
+que vuelve el botón central.</p>
+
+<h3>Página</h3>
+<p>Un “tablero” de 15 teclas. Una escena puede tener varias páginas y navegas entre ellas con
+<b>Página anterior/siguiente</b>, <b>Ir a página</b> o una <b>carpeta</b>
+(<a href="#a-create_folder">Create Folder</a>).</p>
+
+<h3>Tecla</h3>
+<p>Cada posición (0–14) puede llevar <b>imagen</b>, <b>título</b> (hasta 3 líneas), colores de
+texto/fondo, y una <b>acción</b>. Además puede tener una segunda acción por
+<a href="#g-double">doble-tap</a> y participar en <a href="#g-combo">combos</a>.</p>
+
+<!-- ============================ DISPOSITIVO ============================ -->
+<h2 id="dispositivo">El dispositivo</h2>
+<p>El M18 tiene una rejilla de <b>3×5 teclas LCD</b> (posiciones 0 a 14) y <b>3 botones
+laterales</b> sin pantalla: <code>left</code>, <code>mid</code>, <code>right</code>.</p>
+
+<figure class="figure">
+<svg viewBox="0 0 560 250" role="img" aria-label="Disposición de teclas del M18">
+  <!-- side buttons -->
+  <rect x="10" y="40" width="44" height="34" rx="7" fill="#20252f" stroke="#4fe3ff"/>
+  <text x="32" y="62" fill="#cfe8ff" font-size="12" text-anchor="middle">PREV</text>
+  <rect x="10" y="108" width="44" height="34" rx="7" fill="#20252f" stroke="#4fe3ff"/>
+  <text x="32" y="130" fill="#cfe8ff" font-size="12" text-anchor="middle">HOME</text>
+  <rect x="10" y="176" width="44" height="34" rx="7" fill="#20252f" stroke="#4fe3ff"/>
+  <text x="32" y="198" fill="#cfe8ff" font-size="12" text-anchor="middle">NEXT</text>
+  <text x="32" y="28" fill="#9aa4b5" font-size="11" text-anchor="middle">laterales</text>
+
+  <!-- 3x5 grid -->
+  <g font-size="18" font-weight="700" text-anchor="middle" fill="#e7ebf2">
+  <!-- row0 -->
+  <g>
+    <rect x="90"  y="30" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="129" y="66">0</text>
+    <rect x="178" y="30" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="217" y="66">1</text>
+    <rect x="266" y="30" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="305" y="66">2</text>
+    <rect x="354" y="30" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="393" y="66">3</text>
+    <rect x="442" y="30" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="481" y="66">4</text>
+  </g>
+  <g>
+    <rect x="90"  y="96" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="129" y="132">5</text>
+    <rect x="178" y="96" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="217" y="132">6</text>
+    <rect x="266" y="96" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="305" y="132">7</text>
+    <rect x="354" y="96" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="393" y="132">8</text>
+    <rect x="442" y="96" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="481" y="132">9</text>
+  </g>
+  <g>
+    <rect x="90"  y="162" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="129" y="198">10</text>
+    <rect x="178" y="162" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="217" y="198">11</text>
+    <rect x="266" y="162" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="305" y="198">12</text>
+    <rect x="354" y="162" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="393" y="198">13</text>
+    <rect x="442" y="162" width="78" height="60" rx="9" fill="#161a23" stroke="#39414f"/><text x="481" y="198">14</text>
+  </g>
+  </g>
+</svg>
+<figcaption>Rejilla 3×5 (posiciones 0–14) y los 3 botones laterales con su función por defecto.</figcaption>
+</figure>
+
+<div class="tip"><b>Botones laterales por defecto:</b> <code>left</code> = escena anterior,
+<code>mid</code> = escena por defecto (home), <code>right</code> = escena siguiente.
+Puedes reasignarlos haciendo clic en ellos dentro del configurador.</div>
+
+<div class="warn"><b>Importante — el hardware solo envía “tecla pulsada / soltada”.</b>
+No hay ruedas, diales ni pantalla táctil. Todos los gestos (tap, long-press, doble-tap,
+combos) se construyen por software sobre esa única señal.</div>
+
+<!-- ============================ ASIGNAR ============================ -->
+<h2 id="asignar">Asignar una acción a una tecla</h2>
+<ol>
+  <li><b>Arrastrar</b> una acción desde la <b>librería</b> (panel derecho) hasta una tecla del grid.</li>
+  <li><b>Doble-clic</b> en una tecla ya configurada para editarla (conserva título e icono).</li>
+  <li><b>Clic derecho</b> sobre una tecla abre su menú: copiar, pegar, limpiar, capturar imagen,
+      <b>Doble-tap</b> y <b>Combos (página)</b>.</li>
+</ol>
+<p>En el editor de cada tecla puedes poner <b>título</b>, elegir un <b>icono</b> de la galería
+(o <b>capturar</b> un área de la pantalla como icono), y ajustar <b>colores</b> y <b>fuente</b>.</p>
+
+<!-- ============================ GESTOS ============================ -->
+<h2 id="gestos">Gestos: tap, long-press, doble-tap y combos</h2>
+
+<figure class="figure">
+<svg viewBox="0 0 720 210" role="img" aria-label="Línea de tiempo de los gestos">
+  <!-- tap -->
+  <text x="10" y="30" fill="#cfe8ff" font-size="13">Tap (toque corto)</text>
+  <rect x="200" y="18" width="30" height="16" rx="4" fill="#4fe3ff"/>
+  <text x="250" y="30" fill="#9aa4b5" font-size="12">→ acción principal, inmediata</text>
+
+  <!-- long -->
+  <text x="10" y="75" fill="#cfe8ff" font-size="13">Long-press (mantener)</text>
+  <rect x="200" y="63" width="150" height="16" rx="4" fill="#f0aa28"/>
+  <text x="370" y="75" fill="#9aa4b5" font-size="12">≥ ~0,5 s → función secundaria (⟲ / ••)</text>
+
+  <!-- double -->
+  <text x="10" y="120" fill="#cfe8ff" font-size="13">Doble-tap</text>
+  <rect x="200" y="108" width="24" height="16" rx="4" fill="#78e678"/>
+  <rect x="236" y="108" width="24" height="16" rx="4" fill="#78e678"/>
+  <text x="280" y="120" fill="#9aa4b5" font-size="12">2 toques &lt; ~0,28 s → acción de doble-tap (»)</text>
+
+  <!-- combo -->
+  <text x="10" y="165" fill="#cfe8ff" font-size="13">Combo</text>
+  <rect x="200" y="153" width="24" height="16" rx="4" fill="#d282f0"/>
+  <rect x="200" y="153" width="24" height="16" rx="4" fill="#d282f0"/>
+  <rect x="232" y="153" width="24" height="16" rx="4" fill="#d282f0"/>
+  <text x="280" y="165" fill="#9aa4b5" font-size="12">2 teclas a la vez → acción del combo (+)</text>
+
+  <line x1="200" y1="185" x2="560" y2="185" stroke="#2a2f3c"/>
+  <text x="200" y="200" fill="#5f6878" font-size="11">0 s</text>
+  <text x="540" y="200" fill="#5f6878" font-size="11">tiempo →</text>
+</svg>
+<figcaption>Los cuatro gestos disponibles y cuándo se disparan.</figcaption>
+</figure>
+
+<h3>Tap (toque corto)</h3>
+<p>Dispara la acción principal de la tecla. Para teclas normales es <b>inmediato</b>.</p>
+
+<h3>Long-press (mantener pulsado)</h3>
+<p>Algunas funciones usan el mantener-pulsado para su función principal o secundaria. Se marcan
+en la esquina inferior-izquierda:</p>
+<ul>
+  <li><span class="badge-k" style="color:var(--amber)">⟲ anillo ámbar</span> — el long-press es
+      <b>necesario</b> (ej.: <a href="#a-recorder">Hold and Record</a>, <a href="#a-seq_repeat">Sequence Repeat</a>).</li>
+  <li><span class="badge-k" style="color:var(--cyan)">•• dos puntos cian</span> — el long-press hace una
+      <b>función extra</b> (ej.: <a href="#a-recorder_toggle">Long Recorder</a>; en la
+      <a href="#a-calc">Calculadora</a>, <code>+</code>→×, <code>−</code>→÷, <code>Back</code>→limpiar).</li>
+</ul>
+
+<h3 id="g-double">Doble-tap</h3>
+<p>Dos toques rápidos (menos de ~0,28 s entre ellos) ejecutan una <b>segunda acción</b>
+distinta de la principal. Se marca con <span class="badge-k" style="color:var(--green)">» verde</span>
+(esquina superior-derecha).</p>
+<div class="warn"><b>Compensación:</b> en una tecla <em>con doble-tap configurado</em>, su toque
+simple se retrasa ~0,28 s (hay que esperar por si llega el segundo toque). Las teclas sin
+doble-tap responden al instante.</div>
+<div class="ex"><b>Ejemplo:</b> tecla “Play/Pausa” con doble-tap = abrir YouTube.
+Clic derecho en la tecla → <b>Doble-tap</b> → elige la acción.</div>
+
+<h3 id="g-combo">Combos (2 teclas)</h3>
+<p>Pulsar <b>dos teclas a la vez</b> dispara una acción propia y <b>cancela</b> las acciones
+individuales de esas teclas. Los combos son <b>por página</b>. Las teclas miembro se marcan con
+<span class="badge-k" style="color:var(--purple)">+ morado</span> (esquina superior-izquierda).</p>
+
+<figure class="figure">
+<svg viewBox="0 0 420 150" role="img" aria-label="Combo de dos teclas">
+  <rect x="40" y="35" width="90" height="70" rx="10" fill="#161a23" stroke="#d282f0" stroke-width="2"/>
+  <text x="85" y="78" fill="#e7ebf2" font-size="22" text-anchor="middle" font-weight="700">A</text>
+  <text x="165" y="78" fill="#9aa4b5" font-size="26" text-anchor="middle">+</text>
+  <rect x="200" y="35" width="90" height="70" rx="10" fill="#161a23" stroke="#d282f0" stroke-width="2"/>
+  <text x="245" y="78" fill="#e7ebf2" font-size="22" text-anchor="middle" font-weight="700">B</text>
+  <text x="325" y="78" fill="#9aa4b5" font-size="20" text-anchor="middle">→</text>
+  <rect x="345" y="45" width="60" height="50" rx="9" fill="#1b2a3a" stroke="#4fe3ff"/>
+  <text x="375" y="75" fill="#cfe8ff" font-size="13" text-anchor="middle">acción</text>
+</svg>
+<figcaption>Combo: A + B pulsadas juntas ejecutan una acción, sin disparar A ni B por separado.</figcaption>
+</figure>
+
+<div class="ex"><b>Ejemplo:</b> teclas 1 y 2 juntas = cambiar de escena.
+Clic derecho en cualquier tecla → <b>Combos (página)</b> → elige <b>Tecla A</b>, <b>Tecla B</b>
+y la acción → <b>Añadir combo</b>.</div>
+
+<div class="tip"><b>Qué se puede usar en doble-tap/combo:</b> acciones “simples” —abrir app, web, atajo,
+texto, multimedia, brillo, cerrar, super-hotkeys, rutina, audio, captura, cambio de escena/página…
+Las <em>mini-apps con estado</em> (Timer, Calculadora, grabadoras, Sequence Repeat, Alarma,
+Calendario, Reminder, To-Do) <b>no</b> se admiten como doble-tap/combo, porque llevan su propio
+manejo de pulsación.</div>
+
+<!-- ============================ STREAM DOCK ============================ -->
+<h2 id="cat-streamdock">Librería · Stream Dock</h2>
+<p>Navegación y control del propio dispositivo.</p>
+<table>
+<tr><th>Acción</th><th>Qué hace</th><th>Ejemplo</th></tr>
+<tr id="a-create_folder"><td><b>Create Folder</b></td>
+  <td>Crea una <b>subpágina</b> nueva en la escena y pone en la tecla un acceso a ella; añade
+  automáticamente una tecla <b>Back</b> (pos 14) para volver.</td>
+  <td>Una tecla “Apps” que abre una página con tus programas.</td></tr>
+<tr id="a-scene_shift"><td><b>Scene Shift</b></td>
+  <td>Cambia de escena: <code>prev</code>, <code>next</code>, <code>home</code> (la de defecto)
+  o una escena concreta por índice.</td>
+  <td>Tecla “Streaming” que salta a esa escena.</td></tr>
+<tr><td><b>Previous / Next Page</b></td>
+  <td>Va a la página anterior / siguiente dentro de la escena actual.</td>
+  <td>Flechas ◀ ▶ para paginar.</td></tr>
+<tr><td><b>Go to Page</b></td>
+  <td>Salta a una página concreta (número 1 = primera).</td>
+  <td>Volver a la página 1 desde cualquier sitio.</td></tr>
+<tr><td><b>Page Indicator</b></td>
+  <td>Muestra en vivo <code>página/total</code> (no es una acción, es un indicador).</td>
+  <td>“2/4” en una esquina.</td></tr>
+<tr><td><b>Brightness</b></td>
+  <td>Fija el brillo de las pantallas (0–100).</td>
+  <td>Tecla de brillo al 40 %.</td></tr>
+<tr><td><b>devsleep</b></td>
+  <td>Apaga las pantallas (suspende). Cualquier tecla las despierta.</td>
+  <td>Tecla “Apagar pantallas”.</td></tr>
+</table>
+
+<!-- ============================ TOOLBOX ============================ -->
+<h2 id="cat-toolbox">Librería · Toolbox</h2>
+<p>Automatización del PC: teclado, ratón, apps y web.</p>
+<table>
+<tr><th>Acción</th><th>Qué hace</th><th>Ejemplo</th></tr>
+<tr><td><b>Website</b></td><td>Abre una URL (en el navegador por defecto o el que elijas).</td>
+  <td><code>https://gmail.com</code></td></tr>
+<tr id="a-hotkey"><td><b>Hotkey</b></td><td>Envía una combinación de teclas (por scancode, compatible con juegos como DCS).
+  Puedes <b>capturar</b> el atajo pulsándolo.</td><td><span class="kbd">Ctrl</span>+<span class="kbd">C</span></td></tr>
+<tr><td><b>HotkeySwitch</b></td><td>Alterna entre <b>dos</b> atajos en pulsaciones sucesivas.</td>
+  <td>Mute ⇄ Unmute.</td></tr>
+<tr><td><b>Super Hotkeys</b></td><td>Un <b>script</b> de varias líneas: combos de teclas, texto y
+  retardos. Útil para macros de teclado complejas.</td>
+  <td><code>ctrl+a<br>ctrl+c:500<br>texto: Hola</code></td></tr>
+<tr><td><b>Mouse event</b></td><td>Clic/scroll/mover el ratón, o reproducir una <b>macro</b> de ratón
+  (+teclado) grabada, con repeticiones y velocidad.</td><td>Doble-clic en una posición fija.</td></tr>
+<tr id="a-seq_repeat"><td><b>Sequence Repeat</b></td>
+  <td><span class="pill">long-press ⟲</span> Mantener para <b>grabar</b> ratón+teclado; volver a
+  pulsar detiene; un <b>tap</b> lo reproduce. El tile muestra REC / PLAY.</td>
+  <td>Grabar una secuencia de edición y repetirla.</td></tr>
+<tr><td><b>Open</b></td><td>Abre un archivo o carpeta con su programa asociado.</td>
+  <td>Un documento, una carpeta.</td></tr>
+<tr><td><b>Open an app</b></td><td>Lanza un ejecutable.</td><td><code>notepad.exe</code></td></tr>
+<tr><td><b>Close</b></td><td>Cierra la <b>ventana activa</b> (si dejas la app vacía) o un
+  proceso por nombre (normal o forzado).</td><td>Cerrar <code>chrome.exe</code>.</td></tr>
+<tr><td><b>Text</b></td><td>Escribe un texto en el control enfocado.</td><td>Tu firma de correo.</td></tr>
+<tr><td><b>Password</b></td><td>Escribe/pega una contraseña (opción de pegar con Ctrl+V y pulsar Enter).</td>
+  <td>Login rápido.</td></tr>
+<tr><td><b>Multimedia</b></td><td>Teclas multimedia: play/pausa, siguiente, anterior, stop, subir/bajar/silenciar volumen.</td>
+  <td>Play/Pausa de Spotify.</td></tr>
+</table>
+
+<!-- ============================ AUDIO ============================ -->
+<h2 id="cat-audio">Librería · Audio Player</h2>
+<table>
+<tr><th>Acción</th><th>Qué hace</th><th>Ejemplo</th></tr>
+<tr><td><b>Play Audio</b></td><td>Reproduce un archivo de audio por la salida elegida (modo toggle,
+  volumen ajustable).</td><td>Un efecto de sonido en directo.</td></tr>
+<tr><td><b>Stop Audio</b></td><td>Detiene <b>todos</b> los audios en reproducción.</td><td>Botón de “silencio”.</td></tr>
+</table>
+
+<!-- ============================ PRACTICAL ============================ -->
+<h2 id="cat-practical">Librería · Practical</h2>
+<p>Mini-aplicaciones que viven en la propia tecla. Varias usan <b>long-press</b> (ver sus marcas).</p>
+<table>
+<tr><th>Acción</th><th>Qué hace</th><th>Ejemplo</th></tr>
+<tr><td><b>Timer</b></td><td>Cuenta regresiva en la tecla. Pulsar inicia / pausa / reinicia. Al llegar
+  a 0 avisa (y puede abrir un popup).</td><td>Temporizador de 5 min.</td></tr>
+<tr><td><b>On Timer Execute</b></td><td>Como el Timer, pero al llegar a 0 <b>ejecuta una acción</b>.</td>
+  <td>A los 10 min, lanzar un sonido.</td></tr>
+<tr id="a-routine"><td><b>Routines</b></td><td>Reproduce una <b>rutina</b> grabada (secuencia) por su nombre.</td>
+  <td>Rutina “abrir espacio de trabajo”.</td></tr>
+<tr><td><b>Calendar Notes</b></td><td>Muestra la fecha de hoy; al pulsar abre una ventana de <b>notas</b> por día.</td>
+  <td>Notas rápidas del día.</td></tr>
+<tr><td><b>Alarm</b></td><td>Alarma a una hora. Al sonar, pulsar pospone; si está pospuesta, la reconoce.</td>
+  <td>Recordatorio diario a las 9:00.</td></tr>
+<tr id="a-recorder"><td><b>Hold and Record</b></td>
+  <td><span class="pill">long-press ⟲</span> Mantener para <b>grabar audio</b>; soltar guarda.
+  Un clic corto abre la ventana de grabaciones.</td><td>Nota de voz rápida.</td></tr>
+<tr id="a-recorder_toggle"><td><b>Long Recorder</b></td>
+  <td><span class="pill">long-press ••</span> Clic corto <b>alterna</b> grabación (empezar/parar);
+  mantener abre la ventana.</td><td>Grabar una reunión larga.</td></tr>
+<tr><td><b>Reminder</b></td><td>Indicador global de recordatorios; al pulsar abre su ventana.</td>
+  <td>Lista de recordatorios con aviso.</td></tr>
+<tr><td><b>To Do</b></td><td>Indicador de tareas; al pulsar abre la lista (Hoy / Próximo / Todo / Completadas).</td>
+  <td>Tu lista de pendientes.</td></tr>
+<tr><td><b>Screen Capture</b></td><td>Captura un área de la pantalla; la copia al portapapeles y/o la guarda.</td>
+  <td>Recorte rápido para pegar.</td></tr>
+<tr id="a-calc"><td><b>Calculator</b></td>
+  <td>Convierte un grupo de teclas en una calculadora (un <b>rol</b> por tecla: dígitos, punto,
+  +, −, =, Back). <span class="pill">long-press ••</span> <code>+</code>→×, <code>−</code>→÷,
+  <code>Back</code>→limpiar. La tecla <code>=</code> muestra el número y el resultado.</td>
+  <td>Calculadora de 10–12 teclas.</td></tr>
+</table>
+
+<!-- ============================ OP FLOW ============================ -->
+<h2 id="cat-opflow">Librería · Operation Flow</h2>
+<p>Encadenar o alternar varias acciones con una sola tecla.</p>
+<table>
+<tr><th>Acción</th><th>Qué hace</th><th>Ejemplo</th></tr>
+<tr><td><b>Action flow</b></td><td>Ejecuta <b>varias acciones en secuencia</b> (una por línea del script).</td>
+  <td>Abrir app → esperar → escribir texto.</td></tr>
+<tr><td><b>Carousel</b></td><td>En cada pulsación ejecuta la <b>siguiente</b> acción de la lista (rota).</td>
+  <td>Ciclar entre 3 escenas de OBS.</td></tr>
+<tr><td><b>Action Toggle</b></td><td>Alterna entre <b>dos</b> acciones en pulsaciones sucesivas.</td>
+  <td>Iniciar ⇄ detener grabación.</td></tr>
+</table>
+
+<!-- ============================ OBS ============================ -->
+<h2 id="cat-obs">Librería · OBS Studio</h2>
+<p>Control de OBS por WebSocket. Primero configura la conexión en los
+<a href="#ajustes">ajustes</a> (host, puerto <code>4455</code> y contraseña del
+<em>obs-websocket</em>).</p>
+<table>
+<tr><th>Acción</th><th>Qué hace</th></tr>
+<tr><td><b>Record</b></td><td>Inicia/detiene la grabación.</td></tr>
+<tr><td><b>Stream</b></td><td>Inicia/detiene la emisión en directo.</td></tr>
+<tr><td><b>Virtual camera</b></td><td>Activa/desactiva la cámara virtual.</td></tr>
+<tr><td><b>Scene</b></td><td>Cambia a una escena de OBS.</td></tr>
+<tr><td><b>Source Visibility</b></td><td>Muestra/oculta/alterna una fuente.</td></tr>
+<tr><td><b>Audio Mixer</b></td><td>Silencia/activa o alterna una entrada de audio.</td></tr>
+<tr><td><b>Studio Mode</b></td><td>Activa/desactiva el modo estudio.</td></tr>
+<tr><td><b>Screenshot</b></td><td>Guarda una captura (en la carpeta que indiques).</td></tr>
+<tr><td><b>Transition</b></td><td>Dispara la transición entre preview y programa.</td></tr>
+<tr><td><b>Green background UP / DN</b></td><td>Sube/baja una imagen de fondo (croma) configurada en OBS.</td></tr>
+</table>
+
+<!-- ============================ ESCENAS ============================ -->
+<h2 id="escenas">Gestionar escenas</h2>
+<ul>
+  <li><b>Crear / renombrar</b> escenas desde la barra de escenas (doble-clic para renombrar).</li>
+  <li><b>Escena por defecto (home)</b>: doble-clic en el botón de “home” de una escena la marca
+      como la que carga al arrancar y a la que vuelve el botón central lateral.</li>
+  <li><b>Exportar una escena</b> individual a un paquete <code>.zip</code> (con sus iconos) para
+      llevarla a otro equipo o compartirla. Ver <a href="#exportar">Exportar / importar</a>.</li>
+</ul>
+
+<!-- ============================ AJUSTES ============================ -->
+<h2 id="ajustes">Ajustes del dispositivo</h2>
+<table>
+<tr><th>Ajuste</th><th>Qué hace</th></tr>
+<tr><td><b>Brillo</b></td><td>Nivel de las pantallas (0–100).</td></tr>
+<tr><td><b>Rotación</b></td><td>Gira la imagen 0/90/180/270° (útil según cómo montes el M18).</td></tr>
+<tr><td><b>Apagado de pantalla</b></td><td>Tras X de inactividad apaga las pantallas; cualquier tecla
+  (o un timer activo) las despierta.</td></tr>
+<tr><td><b>LED lateral</b></td><td>Color e intensidad del LED del borde.</td></tr>
+<tr><td><b>Conexión / OBS</b></td><td>Conectar con el M18 y configurar el <em>obs-websocket</em>
+  (host, puerto, contraseña).</td></tr>
+<tr><td><b>Restaurar</b></td><td>Devuelve los ajustes de hardware a sus valores por defecto.</td></tr>
+</table>
+
+<!-- ============================ EXPORT ============================ -->
+<h2 id="exportar">Exportar / importar (con iconos)</h2>
+<p>La exportación genera un <b>paquete <code>.zip</code></b> que incluye tu configuración
+<b>y los iconos reales</b> (más capturas y fuentes personalizadas). Así, al importarlo en otro
+equipo, todo se restaura <b>exactamente igual</b>: los iconos se reubican y las rutas se
+reescriben automáticamente.</p>
+
+<figure class="figure">
+<svg viewBox="0 0 620 200" role="img" aria-label="Contenido del paquete de exportación">
+  <rect x="30" y="30" width="150" height="140" rx="12" fill="#1b2a3a" stroke="#4fe3ff"/>
+  <text x="105" y="56" fill="#cfe8ff" font-size="14" text-anchor="middle" font-weight="700">paquete .zip</text>
+  <g font-size="12" fill="#e7ebf2" text-anchor="start">
+    <rect x="48" y="70" width="114" height="22" rx="5" fill="#141821" stroke="#2a2f3c"/><text x="56" y="85">config.json</text>
+    <rect x="48" y="98" width="114" height="22" rx="5" fill="#141821" stroke="#2a2f3c"/><text x="56" y="113">icons/…</text>
+    <rect x="48" y="126" width="114" height="22" rx="5" fill="#141821" stroke="#2a2f3c"/><text x="56" y="141">captures/…</text>
+  </g>
+  <text x="105" y="166" fill="#9aa4b5" font-size="11" text-anchor="middle">+ fonts/</text>
+
+  <text x="300" y="104" fill="#9aa4b5" font-size="22" text-anchor="middle">→</text>
+
+  <rect x="360" y="40" width="230" height="120" rx="12" fill="#12241a" stroke="#244a33"/>
+  <text x="475" y="66" fill="#78e678" font-size="14" text-anchor="middle" font-weight="700">otro equipo</text>
+  <text x="475" y="92" fill="#e7ebf2" font-size="12" text-anchor="middle">iconos reubicados en su</text>
+  <text x="475" y="110" fill="#e7ebf2" font-size="12" text-anchor="middle">carpeta de datos y rutas</text>
+  <text x="475" y="128" fill="#e7ebf2" font-size="12" text-anchor="middle">reescritas → luce idéntico</text>
+</svg>
+<figcaption>El <code>.zip</code> lleva config + iconos/capturas/fuentes; al importar se reubican en el equipo destino.</figcaption>
+</figure>
+
+<p><b>Exportar:</b> Ajustes → Exportar → se guarda <code>stream_dock_m18_config.zip</code>.<br>
+<b>Importar:</b> Ajustes → Importar → elige el <code>.zip</code> (también admite <code>.json</code>
+antiguos, aunque esos no traen los iconos).</p>
+
+<!-- ============================ BANDEJA ============================ -->
+<h2 id="bandeja">Bandeja y autoarranque</h2>
+<ul>
+  <li>La app se registra para <b>iniciar con Windows</b> y copia iconos/config a tu carpeta de
+      usuario la primera vez.</li>
+  <li>El <b>servidor</b> sigue vivo en la bandeja aunque cierres el configurador. Solo
+      <b>Salir</b> (menú de la bandeja) lo apaga.</li>
+  <li>Desde la bandeja puedes abrir el configurador, activar/desactivar el autoarranque y salir.</li>
+</ul>
+
+<!-- ============================ PROBLEMAS ============================ -->
+<h2 id="problemas">Solución de problemas</h2>
+<div class="warn"><b>El M18 no se detecta.</b> Usa un <b>cable USB-C de datos</b> (no de solo carga)
+y cierra el <b>software oficial de VSD</b> si está abierto: no puede estar conectado a la vez que
+esta app. Prueba otro puerto USB.</div>
+<div class="tip"><b>Los iconos no aparecen al restaurar.</b> Importa el paquete <code>.zip</code>
+(no un <code>.json</code> suelto): el <code>.zip</code> lleva los iconos y los reubica.
+Ver <a href="#exportar">Exportar / importar</a>.</div>
+<div class="tip"><b>Un atajo no llega a un juego.</b> Usa <b>Hotkey</b> (envía por scancode, que
+reconocen juegos como DCS). Ojo: capturar atajos del sistema (p.ej. Win+R) también dispara la
+acción del sistema.</div>
+<div class="card"><b>¿Dónde viven mis datos?</b> En Ajustes → “Abrir carpeta” se abre la carpeta con
+tu <code>config.json</code> e <code>icons/</code>.</div>
+
+<p style="margin-top:40px;color:#5f6878;font-size:12px">Stream Dock M18 by JARCMASTER · guía local integrada.</p>
+</main>
+</div>
+</body>
+</html>

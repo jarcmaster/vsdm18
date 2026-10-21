@@ -1846,15 +1846,18 @@ def main(page: ft.Page):
 
         def user_guide(e):
             import webbrowser
-            # README empaquetado o del repo; si no, el repositorio
+            # Guia HTML local (segun idioma) -> fallback espanol -> README -> repo
+            lang = LANG_STATE.get("cur", "es")
+            candidates = [f"help_guide_{lang}.html", "help_guide_es.html", "README.md"]
             for base in (m18_paths.resource_dir(), HERE):
-                rd = os.path.join(base, "README.md")
-                if os.path.isfile(rd):
-                    try:
-                        os.startfile(rd)
-                        return
-                    except Exception:
-                        break
+                for fn in candidates:
+                    p = os.path.join(base, fn)
+                    if os.path.isfile(p):
+                        try:
+                            os.startfile(p)
+                            return
+                        except Exception:
+                            break
             try:
                 webbrowser.open("https://github.com/jarcmaster")
             except Exception as ex:
